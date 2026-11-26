@@ -23,4 +23,10 @@ export const RESERVED_ALIASES: ReadonlySet<string> = new Set([
   'static',
   'favicon',
   'robots',
+  // Frontend pages share the jadi.click host with short links (nginx routes
+  // these paths to Next.js), so a short link must never shadow them.
+  'dashboard',
+  'icon',
+  'app',
+  'www',
 ]);
