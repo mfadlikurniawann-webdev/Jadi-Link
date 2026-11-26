@@ -42,7 +42,8 @@ sed -e "s#/etc/letsencrypt/live/link.example.com/#$work/ssl/#g" \
   -e 's/listen 443/listen 18443/' \
   -e 's/127\.0\.0\.1:3001/127.0.0.1:13001/' \
   "$repo/deploy/nginx/jadi-link.conf" >"$work/sites/jadi-link.conf"
-if grep -qE '/etc/|/var/' "$work/sites/jadi-link.conf"; then
+# Comments may mention system paths; only directives matter.
+if sed '/^[[:space:]]*#/d' "$work/sites/jadi-link.conf" | grep -E '/etc/|/var/' >&2; then
   echo "Unmapped system path in the sandboxed site config." >&2
   exit 1
 fi
