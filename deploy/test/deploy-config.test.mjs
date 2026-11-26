@@ -1,5 +1,6 @@
 // Contract tests for deployment files. Run: node --test deploy/test
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -228,6 +229,23 @@ test('production env template is safe and has no real secrets', () => {
   assert.match(env.VISITOR_HASH_SECRET, /^replace-with-/);
   assert.match(env.DATABASE_URL, /USER:PASSWORD@YOUR-ENDPOINT/);
   assert.match(env.DATABASE_URL, /sslmode=verify-full/);
+});
+
+test('shell scripts are committed as executable', () => {
+  // Windows checkouts (core.fileMode=false) can silently drop the bit.
+  const index = execFileSync(
+    'git',
+    ['ls-files', '--stage', 'deploy/scripts', 'deploy/test'],
+    { cwd: repoDir, encoding: 'utf8' },
+  );
+  const scripts = index
+    .split('\n')
+    .filter((line) => line.endsWith('.sh'))
+    .map((line) => line.split(/\s+/));
+  assert.ok(scripts.length >= 2);
+  for (const [mode, , , path] of scripts) {
+    assert.equal(mode, '100755', `${path} must be executable`);
+  }
 });
 
 test('shell scripts fail fast', () => {
