@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from './auth-provider';
 import { LanguageSwitch } from './language-switch';
-import { Icon } from './icons';
+import { BrandMark, Icon } from './icons';
 import { LoadingPage, Modal } from './ui';
 
 export function Brand() {
@@ -15,14 +15,14 @@ export function Brand() {
     <Link
       href="/"
       className="brand"
-      aria-label={t('Jadi Link — beranda', 'Jadi Link — home')}
+      aria-label={t('jadi.click — beranda', 'jadi.click — home')}
     >
       <span className="brand-mark">
-        <Icon name="link" width={19} height={19} />
+        <BrandMark />
       </span>
       <span>
-        jadi<span className="font-normal">link</span>
-        <span className="text-accent">.</span>
+        jadi<span className="text-accent">.</span>
+        <span className="font-normal">click</span>
       </span>
     </Link>
   );

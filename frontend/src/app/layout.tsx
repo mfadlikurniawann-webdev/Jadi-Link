@@ -20,8 +20,8 @@ const display = Bebas_Neue({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Jadi Link — singkat tautannya, kenali kliknya.',
-    template: '%s · Jadi Link',
+    default: 'jadi.click — singkat tautannya, kenali kliknya.',
+    template: '%s · jadi.click',
   },
   description: 'Tautan pendek dengan analitik klik.',
   robots: { index: false, follow: false },

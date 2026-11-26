@@ -47,7 +47,7 @@ export function HeroCard() {
           <Icon name="arrow" width={16} />
         </div>
         <div className="hero-field is-short">
-          jadi.link/<b>hujan26</b>
+          jadi.click/<b>hujan26</b>
         </div>
         <div className="hero-stats">
           <div>

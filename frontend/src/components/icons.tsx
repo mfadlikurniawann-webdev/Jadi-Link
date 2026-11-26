@@ -108,6 +108,37 @@ const paths = {
 } satisfies Record<string, React.ReactNode>;
 
 export type IconName = keyof typeof paths;
+/** Logo mark: a pointer mid-click. Shares geometry with app/icon.svg. */
+export function BrandMark(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      data-icon="brand"
+      {...props}
+    >
+      <g transform="translate(1.2 1)">
+        <path
+          d="M9 7v11l2.7-2.7 1.9 4.1 1.9-.8-1.9-4.1h3.6z"
+          fill="currentColor"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M9 4.4V2.6M6.9 5.1 5.6 3.8M6.4 7H4.6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+        />
+      </g>
+    </svg>
+  );
+}
+
 export function Icon({
   name,
   ...props
