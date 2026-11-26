@@ -35,5 +35,10 @@ export async function configureApp(app: NestFastifyApplication): Promise<void> {
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: false,
   });
+  if (config.get('NODE_ENV') !== 'production') {
+    // Do not generate or register the UI/spec on the production bootstrap path.
+    const { configureSwagger } = await import('./swagger/configure-swagger');
+    configureSwagger(app);
+  }
   app.enableShutdownHooks();
 }

@@ -1,5 +1,6 @@
 import { Exclude, Expose } from 'class-transformer';
 import type { User } from '@prisma/client';
+import { ApiProperty } from '@nestjs/swagger';
 
 export type PublicUser = Pick<User, 'id' | 'email' | 'createdAt'>;
 
@@ -7,12 +8,15 @@ export type PublicUser = Pick<User, 'id' | 'email' | 'createdAt'>;
 @Exclude()
 export class UserResponseDto {
   @Expose()
+  @ApiProperty({ format: 'uuid' })
   readonly id: string;
 
   @Expose()
+  @ApiProperty({ format: 'email' })
   readonly email: string;
 
   @Expose()
+  @ApiProperty({ type: String, format: 'date-time' })
   readonly createdAt: Date;
 
   constructor(user: PublicUser) {

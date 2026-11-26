@@ -155,7 +155,7 @@ describe('Phase 4 public redirect HTTP tests (database mocked)', () => {
     expect(prisma.click.createMany).toHaveBeenCalledTimes(1);
   });
 
-  it.each(['missing-code', 'api', 'docs', 'health', 'ab', 'file.txt'])(
+  it.each(['missing-code', 'api', 'health', 'ab', 'file.txt'])(
     'returns 404 with no click for absent/reserved/malformed code %s',
     async (code) => {
       expect((await get(code)).statusCode).toBe(404);
@@ -163,6 +163,12 @@ describe('Phase 4 public redirect HTTP tests (database mocked)', () => {
       expect(buffer.pendingCount).toBe(0);
     },
   );
+
+  it('serves non-production docs without treating them as a short link click', async () => {
+    expect((await get('docs')).statusCode).toBe(200);
+    await nextTurn();
+    expect(buffer.pendingCount).toBe(0);
+  });
 
   it.each([
     { isActive: false },

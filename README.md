@@ -10,7 +10,7 @@ Prisma; frontend Next.js akan dibuat di fase 7.
 - [x] Fase 3 — CRUD link, ownership, kode otomatis, validasi URL.
 - [x] Fase 4 — redirect, cache LRU, buffer klik.
 - [x] Fase 5 — analitik.
-- [ ] Fase 6 — pengujian fitur inti dan alur lengkap, Swagger.
+- [x] Fase 6 — pengujian fitur inti dan alur lengkap, Swagger.
 - [ ] Fase 7 — frontend Next.js.
 - [ ] Fase 8 — deployment PM2, Nginx, Cloudflare, Vercel.
 
@@ -430,6 +430,39 @@ Jika daftar link kosong atau contoh CRUD sudah menghapus `$link`, buat link
 baru dahulu. Jika token kedaluwarsa, login ulang dan perbarui `$headers`.
 Periode saat ini tetap 30 hari UTC; belum ada filter tanggal/timezone kustom.
 
+## Swagger (fase 6)
+
+Jalankan backend di terminal pertama dengan `npm run start:dev`, lalu buka:
+
+- UI: **http://localhost:3001/docs**
+- OpenAPI JSON: **http://localhost:3001/docs/openapi.json**
+
+Urutan mencoba API lewat UI:
+
+1. Jalankan **POST /api/auth/register** atau **POST /api/auth/login**.
+2. Salin nilai `accessToken` dari respons.
+3. Klik **Authorize**, tempel token saja (tanpa menambahkan `Bearer` lagi).
+4. Coba **POST /api/links**, lalu daftar/detail dan endpoint analitik.
+
+Token tidak dipersist ke localStorage oleh Swagger UI. Jangan memasukkan
+kredensial production ke dokumentasi development atau membagikan screenshot
+yang berisi token/password. Untuk melihat 302 redirect gunakan `curl.exe -i`:
+browser/Swagger dapat mengikuti redirect lalu terkena CORS milik situs tujuan.
+
+Dokumentasi memuat:
+
+- DTO input/output, parameter query/UUID, batas UTF-8 password, expiry nullable,
+  alias immutable, serta schema nested untuk analitik.
+- Bearer security hanya pada endpoint privat; register/login/health/redirect
+  tetap publik sesuai implementasi.
+- Status 201/200/204/302 serta error envelope yang konsisten, termasuk
+  `Location`, `Cache-Control`, dan `Retry-After` yang relevan.
+
+Jika `NODE_ENV=production`, **UI, JSON, dan aset Swagger tidak didaftarkan**.
+Jangan menjalankan deployment production dengan `NODE_ENV=development`.
+Unit/HTTP test memeriksa bahwa `/docs`, `/docs/openapi.json`, dan aset UI
+mengembalikan 404 pada konfigurasi production, sementara health/API tetap hidup.
+
 ## Kualitas dan build
 
 Di folder `backend/`:
@@ -439,16 +472,62 @@ npm run lint
 npm run format:check
 npm test
 npm run test:e2e
+npm run test:cov
 npm run build
 npm run start:prod
 ```
 
-Unit test dan HTTP test fase 1–5 tidak memerlukan database, karena provider
+Unit test dan HTTP test biasa tidak memerlukan database, karena provider
 Prisma di-mock. Test auth tetap menggunakan bcrypt dan JWT sungguhan.
-Itu **bukan** pengganti pengujian migrasi terhadap PostgreSQL asli
-atau e2e register → login → link → redirect yang dijadwalkan fase 6.
+Untuk e2e dengan migrasi dan database asli, jalankan suite integrasi terpisah
+di bawah. Suite tersebut tidak termasuk `npm run test:e2e` agar tes cepat tetap
+aman dan dapat dijalankan tanpa PostgreSQL.
 Build membutuhkan `.env` atau env `DATABASE_URL` untuk membaca konfigurasi
 Prisma, tetapi tidak membuka koneksi database. Build menghasilkan `dist/main.js`.
+
+### E2e PostgreSQL sungguhan
+
+Prasyarat: PostgreSQL **lokal** sudah berjalan dan satu role lokal mempunyai
+hak **CREATEDB**. Tidak memakai Docker dan jangan menjalankan tes ini di VPS
+production atau memakai URL Neon.
+
+Di PowerShell, dari folder `backend/`:
+
+```powershell
+$env:TEST_DATABASE_URL = 'postgresql://postgres:PASSWORD@127.0.0.1:5432/postgres'
+npm run test:integration
+Remove-Item Env:TEST_DATABASE_URL
+```
+
+Ganti user/password/port sesuai PostgreSQL lokal; URL-encode karakter khusus
+pada password. URL tanpa password juga bisa digunakan bila role lokal memakai
+trust authentication. Nama database pada URL admin harus `postgres`, tanpa
+parameter query. `DATABASE_URL`/`DIRECT_URL` development **tidak** dijadikan
+fallback. URL non-loopback, Neon/remote, database aplikasi, atau query override
+seperti `?host=...` ditolak sebelum koneksi.
+
+Runner membuat database unik `jadi_link_test_<random>`, mengaplikasikan migrasi
+dengan Prisma, mengatur default timezone database uji ke Asia/Bangkok untuk
+regresi, lalu menyalakan aplikasi asli dengan koneksi UTC. Hanya database
+yang dibuat runner itu yang dihapus setelah aplikasi ditutup, termasuk saat
+tes gagal secara normal. Tidak ada penghapusan/reset tabel database pengguna.
+Jika proses dibunuh paksa, database sementara bisa tersisa; jangan menghapus
+database lain secara massal.
+
+Alur yang diverifikasi:
+
+- register → login → create link → redirect 302 → flush batch → analitik;
+- password ter-hash, konflik email/kode memakai constraint PostgreSQL;
+- update tujuan menginvalidasi cache, kode tetap sama, delete melakukan cascade;
+- buffer dengan parent terhapus tetap dapat dikuras;
+- batas UTC 30 hari, unique visitor, null/legacy metadata, dan ownership dua user.
+
+Laporan `npm run test:cov` ada di `backend/coverage/` (diabaikan Git).
+Coverage ini **khusus unit test**, bukan gabungan HTTP/integrasi: controller,
+bootstrap, dan Swagger diuji melalui suite HTTP. Generator kode, aturan URL,
+service links, dan kalkulasi analitik memiliki 100% line coverage unit pada
+verifikasi fase 6; itu bukan klaim seluruh aplikasi 100% covered.
+Peringatan VM Modules dari Node saat menjalankan Jest adalah normal.
 
 Verifikasi fase 1: **17 unit test + 5 HTTP smoke test** lulus di Node 24 LTS,
 termasuk respons 503 dan pembatasan CORS. Migrasi, kesesuaian schema, cascade
@@ -496,6 +575,14 @@ Data uji dibersihkan; tidak ada data aplikasi yang dibaca/ditulis pada Neon
 untuk pengujian ini. Cek kompatibilitas Neon hanya menjalankan `SHOW TimeZone`.
 Tidak ada perubahan schema, migrasi, atau dependency tambahan pada fase 5.
 
+Verifikasi fase 6 di Node 24 LTS: **212 unit + 117 HTTP + 8 tes pada suite
+integrasi**, total **337 tes lulus**. Suite integrasi berisi 2 alur PostgreSQL
+asli dan 6 pengecekan pengaman URL database. Swagger UI/aset, schema/security
+OpenAPI, dan penonaktifan dokumentasi production sudah diuji melalui HTTP.
+Lint, format check, build, dan audit dependency juga lulus.
+Tidak ada perubahan schema/migrasi. Dependency Swagger dan static asset
+ditambahkan sesuai versi yang kompatibel dengan Nest/Fastify yang terpasang.
+
 ## Struktur backend
 
 ```text
@@ -514,7 +601,8 @@ backend/
     users/         # akses data user, DTO publik, profil
     app.module.ts  # susunan module dan provider global
     main.ts        # bootstrap Fastify
-  test/            # HTTP smoke test
+  test/            # HTTP dengan mock DB, kontrak Swagger
+    integration/   # e2e dengan PostgreSQL lokal terisolasi
 ```
 
 ## Keputusan dasar
@@ -546,7 +634,7 @@ backend/
   perlu ditinjau ulang saat dependency induknya diperbarui.
 - Jest memakai flag VM modules agar dependency ESM milik Fastify dapat diuji
   dari proyek CommonJS. Peringatan experimental Node saat tes adalah normal.
-- `/docs` belum tersedia; Swagger dijadwalkan fase 6 dan akan nonaktif pada
-  production. Domain asli belum ditentukan; ubah env saat sudah tersedia.
+- `/docs` dan `/docs/openapi.json` hanya tersedia di non-production.
+  Domain asli belum ditentukan; ubah env saat sudah tersedia.
 
 Deployment lengkap sengaja belum dibuat sebelum fase 8.

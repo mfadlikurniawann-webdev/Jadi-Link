@@ -22,6 +22,8 @@ describe('Phase 1 HTTP smoke test (database mocked)', () => {
     app = module.createNestApplication<NestFastifyApplication>(
       new FastifyAdapter(),
     );
+    // The intentional 503 case is asserted below; do not print a scary error log.
+    app.useLogger(false);
     await configureApp(app);
     await app.init();
     await app.getHttpAdapter().getInstance().ready();

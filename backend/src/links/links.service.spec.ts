@@ -248,6 +248,24 @@ describe('LinksService', () => {
     expect(cache.invalidate).not.toHaveBeenCalled();
   });
 
+  it('propagates unexpected update failures without invalidating the cache', async () => {
+    const failure = new Error('Database unavailable');
+    prisma.link.update.mockRejectedValue(failure);
+    await expect(
+      service.update(userId, link.id, { isActive: false }),
+    ).rejects.toBe(failure);
+    expect(cache.invalidate).not.toHaveBeenCalled();
+  });
+
+  it('can change expiration to a future timestamp without altering other fields', async () => {
+    const expiresAt = new Date(Date.now() + 86400000).toISOString();
+    await service.update(userId, link.id, { expiresAt });
+    expect(prisma.link.update).toHaveBeenCalledWith({
+      where: { id: link.id, userId },
+      data: { expiresAt: new Date(expiresAt) },
+    });
+  });
+
   it('includes ownership in DELETE', async () => {
     await service.remove(userId, link.id);
     expect(prisma.link.delete).toHaveBeenCalledWith({
@@ -261,5 +279,12 @@ describe('LinksService', () => {
     await expect(service.remove(userId, link.id)).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it('propagates unexpected delete failures without invalidating the cache', async () => {
+    const failure = new Error('Database unavailable');
+    prisma.link.delete.mockRejectedValue(failure);
+    await expect(service.remove(userId, link.id)).rejects.toBe(failure);
+    expect(cache.invalidate).not.toHaveBeenCalled();
   });
 });

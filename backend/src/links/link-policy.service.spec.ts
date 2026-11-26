@@ -27,6 +27,7 @@ describe('LinkPolicyService', () => {
     '/relative',
     'https:///example.com',
     'https://',
+    'https://[not-an-ipv6]/',
     'not-a-url',
     'https://user:password@example.com',
     'https://example.com/a\nb',
@@ -37,6 +38,12 @@ describe('LinkPolicyService', () => {
     `https://example.com/${'語'.repeat(300)}`,
   ])('rejects unsafe or malformed URL: %s', (url) => {
     expect(() => policy.validateTargetUrl(url)).toThrow(BadRequestException);
+  });
+
+  it('rejects a non-string passed by an internal caller without a TypeError', () => {
+    expect(() => policy.validateTargetUrl(null as unknown as string)).toThrow(
+      BadRequestException,
+    );
   });
 
   it.each([
