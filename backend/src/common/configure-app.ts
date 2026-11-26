@@ -33,6 +33,7 @@ export async function configureApp(app: NestFastifyApplication): Promise<void> {
     origin: new URL(config.get('FRONTEND_ORIGIN')).origin,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Retry-After'],
     credentials: false,
   });
   if (config.get('NODE_ENV') !== 'production') {

@@ -1,7 +1,7 @@
 # Jadi Link
 
 URL shortener dengan analitik klik. Backend NestJS + Fastify, PostgreSQL Neon,
-Prisma; frontend Next.js akan dibuat di fase 7.
+Prisma; frontend Next.js App Router + Tailwind CSS.
 
 ## Progres
 
@@ -11,7 +11,7 @@ Prisma; frontend Next.js akan dibuat di fase 7.
 - [x] Fase 4 — redirect, cache LRU, buffer klik.
 - [x] Fase 5 — analitik.
 - [x] Fase 6 — pengujian fitur inti dan alur lengkap, Swagger.
-- [ ] Fase 7 — frontend Next.js.
+- [x] Fase 7 — frontend Next.js.
 - [ ] Fase 8 — deployment PM2, Nginx, Cloudflare, Vercel.
 
 Repo: [mfadlikurniawann-webdev/Jadi-Link](https://github.com/mfadlikurniawann-webdev/Jadi-Link).
@@ -174,7 +174,7 @@ Keputusan auth:
 - Respons auth/profil memakai `Cache-Control: no-store`. `/api/auth/me` adalah
   pintu pemeriksaan sesi; `/api/users/me` menyediakan resource profil yang sama.
 - Hanya access token, belum ada refresh token atau revocation store. Logout
-  nantinya membuang token di frontend; token yang sudah diterbitkan tetap valid
+  membuang token di frontend; token yang sudah diterbitkan tetap valid
   sampai kedaluwarsa. Jangan mencetak token atau password ke log.
 
 ## Links (fase 3)
@@ -463,6 +463,97 @@ Jangan menjalankan deployment production dengan `NODE_ENV=development`.
 Unit/HTTP test memeriksa bahwa `/docs`, `/docs/openapi.json`, dan aset UI
 mengembalikan 404 pada konfigurasi production, sementara health/API tetap hidup.
 
+## Frontend (fase 7)
+
+Jalankan backend seperti panduan di atas pada terminal pertama, port **3001**.
+Pada terminal kedua, dari root proyek:
+
+```powershell
+cd frontend
+if (-not (Test-Path .env.local)) { Copy-Item .env.example .env.local }
+npm ci
+npm run dev
+```
+
+Buka **http://localhost:3000**, lalu buat akun atau masuk. Jangan mengganti
+`localhost` menjadi `127.0.0.1` tanpa menyamakan `FRONTEND_ORIGIN` backend:
+CORS hanya mengizinkan satu origin yang dikonfigurasi.
+
+`frontend/.env.local` berisi konfigurasi publik, bukan secret:
+
+```dotenv
+NEXT_PUBLIC_API_URL=http://localhost:3001/api
+```
+
+Nilainya wajib berakhiran `/api`; jangan memasukkan `DATABASE_URL`, password
+database, `JWT_SECRET`, atau `VISITOR_HASH_SECRET` ke frontend. Browser
+memanggil API Nest langsung, tanpa BFF/proxy Next, sehingga identitas pengunjung
+di jalur Cloudflare tetap ditangani backend.
+
+### Fitur dan batas sesi
+
+- Landing page, register/login, workspace privat, daftar link berhalaman
+  (20 per halaman), buat/edit, copy, toggle status, dan konfirmasi hapus.
+- Alias/kode tetap immutable; edit hanya mengubah tujuan dan kedaluwarsa.
+  Batas waktu form mengikuti timezone perangkat dan dikirim sebagai ISO UTC.
+- Pencarian, filter status, dan ringkasan dashboard berlaku **untuk halaman
+  yang sedang dibuka**, bukan total seluruh link.
+- Detail menampilkan total klik, klik/visitor unik 30 hari, grafik SVG,
+  tabel harian yang dapat diakses lewat keyboard, serta referrer/negara/device.
+  Periode tetap 30 tanggal UTC; klik tersimpan biasanya terlambat sekitar 5 detik.
+  Setelah mengunjungi short URL, tunggu lalu klik **Perbarui statistik**.
+- Sesi sesuai pilihan pengguna: **hanya di memori React**, bukan cookies,
+  localStorage, sessionStorage, URL, atau log. Refresh/full-page navigation,
+  tab baru, logout, token kedaluwarsa, atau respons privat 401 meminta login ulang.
+  Navigasi internal memakai Next Link agar sesi bertahan.
+- Guard frontend hanya mengatur navigasi/tampilan. Backend tetap memverifikasi
+  JWT dan ownership setiap request privat. Logout tidak mencabut JWT yang
+  sudah diterbitkan; token berlaku sampai expiry backend.
+- Respons gagal, loading, daftar kosong, 404, dan batas permintaan ditangani
+  di UI. CORS mengekspos `Retry-After` agar browser dapat membaca waktu retry.
+
+### Menguji dan build frontend
+
+Dari `frontend/`, menggunakan Node 24 LTS:
+
+```powershell
+npm run format:check
+npm run lint
+npm run typecheck
+npm test
+npx playwright install chromium
+npm run test:e2e
+$env:NEXT_PUBLIC_API_URL = 'http://localhost:3001/api'
+npm run build
+npm run start
+```
+
+Jika Chrome sudah terpasang, gunakan
+`$env:PLAYWRIGHT_CHANNEL = 'chrome'` sebelum `npm run test:e2e` sebagai alternatif
+instalasi Chromium. Untuk macOS/Linux, set env dengan
+`PLAYWRIGHT_CHANNEL=chrome npm run test:e2e` atau
+`NEXT_PUBLIC_API_URL=http://localhost:3001/api npm run build`.
+
+Suite browser otomatis menyalakan frontend pada `127.0.0.1:3100` dan
+mengintersep API `127.0.0.1:3101` dengan mock; tidak membutuhkan backend/Neon.
+Pastikan port 3100 kosong. Konfigurasi production **wajib** menyebut API secara
+eksplisit; host remote harus HTTPS. `NEXT_PUBLIC_API_URL` ditanam pada saat
+build: mengubah nilai setelah build tidak mengganti URL di bundle browser.
+Build ulang bila domain API berubah. Deployment belum dikerjakan pada fase ini.
+
+Struktur frontend:
+
+```text
+frontend/
+  src/app/             # App Router, layout, halaman auth/workspace
+  src/components/      # auth memory-only, shell, modal, komponen UI
+  src/features/links/  # dashboard, editor, delete, detail
+  src/features/analytics/ # grafik SVG dan breakdown
+  src/lib/             # API client, kontrak DTO, validasi, format
+  tests/unit/          # Vitest: API, validasi, grafik/format
+  tests/e2e/           # Playwright: mock API dan alur browser
+```
+
 ## Kualitas dan build
 
 Di folder `backend/`:
@@ -582,6 +673,18 @@ OpenAPI, dan penonaktifan dokumentasi production sudah diuji melalui HTTP.
 Lint, format check, build, dan audit dependency juga lulus.
 Tidak ada perubahan schema/migrasi. Dependency Swagger dan static asset
 ditambahkan sesuai versi yang kompatibel dengan Nest/Fastify yang terpasang.
+
+Verifikasi fase 7 di Node 24 LTS: frontend **38 unit + 9 tes browser**, backend
+**212 unit + 118 HTTP + 8 integrasi**, total **385 tes lulus**. Lint, format
+check, typecheck frontend, kedua production build, dan audit dependency lulus.
+Tes browser mencakup CRUD, clipboard, tabel/grafik, pagination, error API,
+401/expiry, safe return path, refresh logout, ketiadaan token di browser storage,
+serta dialog/fokus dan layout mobile dengan email panjang.
+Frontend hasil production build juga diperiksa dengan backend asli dan
+PostgreSQL lokal terisolasi: register, create, redirect, analitik setelah flush,
+edit tujuan/cache, status 410, delete, dan refresh logout; tidak ada uncaught
+browser error. Database uji dibuang sesudah tes. Tidak ada penulisan ke Neon,
+perubahan schema, migrasi baru, atau konfigurasi deployment pada fase ini.
 
 ## Struktur backend
 

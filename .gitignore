@@ -12,3 +12,7 @@ coverage/
 *.key
 *.p12
 *.pfx
+playwright-report/
+test-results/
+.vercel/
+frontend/next-env.d.ts

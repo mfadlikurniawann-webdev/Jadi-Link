@@ -88,4 +88,17 @@ describe('Phase 1 HTTP smoke test (database mocked)', () => {
       'https://untrusted.example',
     );
   });
+
+  it('exposes only the retry header needed by the browser frontend', async () => {
+    queryRaw.mockResolvedValue([{ '?column?': 1 }]);
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/health',
+      headers: { origin: 'http://localhost:3000' },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['access-control-expose-headers']).toBe(
+      'Retry-After',
+    );
+  });
 });
