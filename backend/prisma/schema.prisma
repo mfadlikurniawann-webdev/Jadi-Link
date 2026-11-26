@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(254)
+  passwordHash String   @db.VarChar(255)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  links        Link[]
+}
+
+model Link {
+  id        String    @id @default(uuid()) @db.Uuid
+  code      String    @unique @db.VarChar(64)
+  targetUrl String    @db.Text
+  userId    String    @db.Uuid
+  isActive  Boolean   @default(true)
+  expiresAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clicks    Click[]
+
+  // Owner dashboard, ordered newest first.
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model Click {
+  id          String   @id @default(uuid()) @db.Uuid
+  linkId      String   @db.Uuid
+  clickedAt   DateTime @default(now()) @db.Timestamptz(3)
+  referrer    String?  @db.VarChar(253)
+  country     String?  @db.VarChar(2)
+  device      String?  @db.VarChar(16)
+  visitorHash String?  @db.VarChar(64)
+  link        Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  // Leading linkId also serves lookups by linkId alone.
+  @@index([linkId, clickedAt])
+  @@index([clickedAt])
+}
