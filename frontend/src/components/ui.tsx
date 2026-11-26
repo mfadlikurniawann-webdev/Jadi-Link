@@ -18,7 +18,7 @@ export function Spinner({ label = 'Memuat…' }: { label?: string }) {
 export function LoadingPage() {
   return (
     <div className="flex min-h-[60vh] items-center justify-center text-sm text-muted">
-      <Spinner label="Menyiapkan ruangmu…" />
+      <Spinner />
     </div>
   );
 }
@@ -107,8 +107,8 @@ export function CopyButton({
         {copied ? 'Tautan berhasil disalin.' : ''}
       </span>
       {failed && (
-        <span className="max-w-60 text-xs text-red-700" role="alert">
-          Clipboard tidak tersedia. Salin URL yang ditampilkan secara manual.
+        <span className="max-w-60 text-xs text-red-400" role="alert">
+          Gagal menyalin. Salin manual.
         </span>
       )}
     </span>
@@ -166,10 +166,9 @@ export function Modal({
       }}
     >
       <div className="p-6 sm:p-8">
-        <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <span className="eyebrow">JADI LINK / WORKSPACE</span>
-            <h2 id={id} className="mt-3 text-2xl font-semibold tracking-tight">
+            <h2 id={id} className="text-2xl font-bold tracking-tight">
               {title}
             </h2>
             {description && (

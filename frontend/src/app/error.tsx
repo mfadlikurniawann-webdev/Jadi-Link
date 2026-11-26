@@ -14,12 +14,7 @@ export default function ErrorPage({
       className="mx-auto flex min-h-[70vh] max-w-lg flex-col items-center justify-center px-6 text-center"
     >
       <Icon name="alert" width={36} height={36} />
-      <h1 className="mt-5 text-3xl font-semibold">
-        Ada yang perlu dimuat ulang.
-      </h1>
-      <p className="mb-6 mt-3 text-muted">
-        Kami tidak dapat menampilkan halaman ini. Coba sekali lagi.
-      </p>
+      <h1 className="mb-6 mt-5 text-3xl font-bold">Terjadi kesalahan.</h1>
       <button className="button button-primary" onClick={reset}>
         Coba lagi
         <Icon name="refresh" />

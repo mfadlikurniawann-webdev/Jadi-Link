@@ -60,12 +60,7 @@ export function LinkEditor({
   return (
     <Modal
       open
-      title={link ? 'Rapikan tautanmu.' : 'Satu tautan baru.'}
-      description={
-        link
-          ? 'Perbarui tujuan atau kedaluwarsa. Kode pendekmu tetap sama.'
-          : 'URL panjang masuk. Tautan yang mudah dibagikan keluar.'
-      }
+      title={link ? 'Ubah tautan' : 'Tautan baru'}
       onClose={onClose}
       busy={busy}
     >
@@ -86,9 +81,6 @@ export function LinkEditor({
             onChange={(event) => setTargetUrl(event.target.value)}
             disabled={busy}
           />
-          <p className="field-hint">
-            Hanya HTTP/HTTPS. Bukan domain short link itu sendiri.
-          </p>
         </div>
         <div>
           <label className="field-label" htmlFor={`${id}-alias`}>
@@ -101,7 +93,7 @@ export function LinkEditor({
           </label>
           <input
             id={`${id}-alias`}
-            className={`input ${link ? 'bg-surface text-muted' : ''}`}
+            className="input"
             placeholder="misalnya: ide-besarku"
             value={alias}
             onChange={(event) => setAlias(event.target.value)}
@@ -111,8 +103,8 @@ export function LinkEditor({
           />
           <p className="field-hint">
             {link
-              ? 'Alias tidak dapat diubah agar tautan lama tetap stabil.'
-              : 'Kosongkan untuk kode otomatis 7 karakter. Alias peka huruf besar/kecil.'}
+              ? 'Alias tidak bisa diubah.'
+              : 'Kosongkan untuk kode otomatis.'}
           </p>
         </div>
         <div>
@@ -123,12 +115,12 @@ export function LinkEditor({
             </label>
             {expiresAt && (
               <button
-                className="mb-2 text-xs font-semibold underline"
+                className="mb-2 text-xs font-semibold text-accent"
                 type="button"
                 onClick={() => setExpiresAt('')}
                 disabled={busy}
               >
-                Hapus batas waktu
+                Hapus
               </button>
             )}
           </div>
@@ -141,16 +133,6 @@ export function LinkEditor({
             onChange={(event) => setExpiresAt(event.target.value)}
             disabled={busy}
           />
-          <p className="field-hint">
-            Mengikuti zona waktu perangkatmu. Kosong berarti tanpa batas waktu.
-          </p>
-        </div>
-        <div className="info-box">
-          <Icon name="shield" />
-          <p>
-            Tautan hanya dapat dikelola oleh akunmu. URL tujuan tetap terlihat
-            oleh pengunjung saat redirect.
-          </p>
         </div>
         <div className="flex justify-end gap-3 border-t border-line pt-5">
           <button

@@ -37,9 +37,7 @@ test('register → create → copy → detail/chart → edit → toggle → dele
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
     .toBe('https://s.example.com/my-portfolio');
   await page.getByRole('link', { name: /s.example.com\/my-portfolio/ }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Kenali klikmu.' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Analitik' })).toBeVisible();
   await expect(
     page.getByRole('img', { name: /Grafik klik harian/ }),
   ).toBeVisible();
@@ -170,7 +168,7 @@ test('shows login, API and rate-limit errors without exposing diagnostics', asyn
   await page.getByRole('button', { name: 'Coba lagi' }).click();
   await page.getByRole('link', { name: /s.example.com\/hello-world/ }).click();
   state.analyticsStatus = 429;
-  await page.getByRole('button', { name: 'Perbarui statistik' }).click();
+  await page.getByRole('button', { name: 'Perbarui', exact: true }).click();
   await expect(
     page.getByRole('alert').filter({ hasText: '6 detik' }),
   ).toBeVisible();

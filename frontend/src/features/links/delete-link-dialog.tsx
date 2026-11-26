@@ -34,7 +34,7 @@ export function DeleteLinkDialog({
     <Modal
       open
       title="Hapus tautan ini?"
-      description={`“${link.code}” beserta seluruh statistik kliknya akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`}
+      description={`“${link.code}” dan statistiknya akan dihapus permanen.`}
       busy={busy}
       onClose={onClose}
     >
@@ -49,7 +49,7 @@ export function DeleteLinkDialog({
           disabled={busy}
           onClick={onClose}
         >
-          Tetap simpan
+          Batal
         </button>
         <button
           className="button button-danger"

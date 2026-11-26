@@ -4,13 +4,11 @@ import type { IconName } from '@/components/icons';
 
 export function Breakdown({
   title,
-  caption,
   icon,
   total,
   rows,
 }: {
   title: string;
-  caption: string;
   icon: IconName;
   total: number;
   rows: { label: string; clicks: number }[];
@@ -21,15 +19,10 @@ export function Breakdown({
         <span className="row-link-icon">
           <Icon name={icon} width={18} />
         </span>
-        <div>
-          <h2 className="font-semibold">{title}</h2>
-          <p className="mt-1 text-xs text-muted">{caption}</p>
-        </div>
+        <h2 className="font-semibold">{title}</h2>
       </div>
       {rows.length === 0 ? (
-        <div className="breakdown-empty">
-          Data akan muncul setelah ada klik tersimpan.
-        </div>
+        <div className="breakdown-empty">Belum ada data.</div>
       ) : (
         <div className="breakdown-rows">
           {rows.map((row) => (

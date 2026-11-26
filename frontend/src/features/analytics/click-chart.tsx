@@ -19,22 +19,13 @@ export function ClickChart({
   return (
     <section className="panel chart-panel">
       <div className="panel-toolbar">
-        <div>
-          <h2 className="font-semibold">Cerita di balik klik</h2>
-          <p className="mt-1 text-xs text-muted">
-            30 hari kalender terakhir · UTC · hari ini belum penuh
-          </p>
+        <h2 className="font-semibold">Klik 30 hari</h2>
+        <div className="chart-selected" aria-live="polite">
+          <span>{active ? dayLabel(active.date, true) : 'Belum ada data'}</span>
+          <strong>
+            {active ? number(active.clicks) : '0'} <span>klik</span>
+          </strong>
         </div>
-        <span className="chart-legend">
-          <i />
-          Klik harian
-        </span>
-      </div>
-      <div className="chart-selected" aria-live="polite">
-        <span>{active ? dayLabel(active.date, true) : 'Belum ada data'}</span>
-        <strong>
-          {active ? number(active.clicks) : '0'} <span>klik</span>
-        </strong>
       </div>
       <div
         className="chart-wrap"
@@ -57,8 +48,8 @@ export function ClickChart({
         >
           <defs>
             <linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#a2bb74" stopOpacity=".34" />
-              <stop offset="100%" stopColor="#a2bb74" stopOpacity=".015" />
+              <stop offset="0%" stopColor="#fc5810" stopOpacity=".38" />
+              <stop offset="100%" stopColor="#fc5810" stopOpacity="0" />
             </linearGradient>
           </defs>
           {[20, 80, 140, 200].map((y) => (
@@ -68,7 +59,7 @@ export function ClickChart({
               y1={y}
               x2="740"
               y2={y}
-              stroke="#e9ece5"
+              stroke="rgba(255,255,255,0.07)"
               strokeDasharray="4 6"
             />
           ))}
@@ -76,7 +67,7 @@ export function ClickChart({
           <path
             d={chart.line}
             fill="none"
-            stroke="#607c3f"
+            stroke="#fc5810"
             strokeWidth="2.5"
             strokeLinejoin="round"
             strokeLinecap="round"
@@ -88,23 +79,21 @@ export function ClickChart({
                 y1="20"
                 x2={point.x}
                 y2="200"
-                stroke="#abb89b"
+                stroke="rgba(255,255,255,0.25)"
                 strokeDasharray="3 5"
               />
               <circle
                 cx={point.x}
                 cy={point.y}
                 r="5"
-                fill="#607c3f"
-                stroke="white"
+                fill="#fc5810"
+                stroke="#050505"
                 strokeWidth="3"
               />
             </>
           )}
         </svg>
-        {!hasClicks && (
-          <div className="chart-empty">Cerita dimulai dari klik pertama.</div>
-        )}
+        {!hasClicks && <div className="chart-empty">Belum ada klik.</div>}
       </div>
       <div className="chart-dates">
         {[0, 7, 14, 21, 29].map((item) => (

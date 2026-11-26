@@ -7,29 +7,29 @@ export default function HomePage() {
     <div className="landing">
       <header className="landing-header">
         <Brand />
-        <Link href="/login" className="button button-secondary">
-          Masuk
-          <Icon name="arrow" width={16} />
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/login" className="button button-quiet button-small">
+            Masuk
+          </Link>
+          <Link href="/register" className="button button-primary button-small">
+            Daftar
+          </Link>
+        </div>
       </header>
-      <main id="main-content" className="landing-hero">
+      <main id="main-content" className="landing-hero animate-enter">
         <span className="landing-tag">
-          <span />
-          SATU TAUTAN. BANYAK KEMUNGKINAN.
+          <span className="dot dot-green" />
+          URL shortener + analitik
         </span>
         <h1>
-          Link-nya singkat.
+          Link singkat.
           <br />
-          <span>Ceritanya panjang.</span>
+          <span>Klik terukur.</span>
         </h1>
-        <p>
-          Ubah URL panjang jadi tautan yang mudah dibagikan.
-          <br className="hidden sm:block" />
-          Lihat dari mana klik datang, tanpa menyimpan IP mentah.
-        </p>
-        <div className="mt-8 flex flex-wrap justify-center gap-3">
+        <p>Persingkat URL dan pantau setiap kliknya.</p>
+        <div className="mt-9 flex flex-wrap justify-center gap-3">
           <Link href="/register" className="button button-primary">
-            Mulai dari satu tautan
+            Mulai gratis
             <Icon name="arrow" width={18} />
           </Link>
           <Link href="/login" className="button button-secondary">
@@ -37,49 +37,20 @@ export default function HomePage() {
           </Link>
         </div>
         <div className="landing-demo">
-          <div className="demo-top">
-            <span className="flex gap-1.5">
-              <i />
-              <i />
-              <i />
-            </span>
-            <span>LINK YANG SIAP DIBAGIKAN</span>
-            <Icon name="shield" width={16} />
-          </div>
+          <span className="demo-icon">
+            <Icon name="link" width={24} />
+          </span>
           <div className="demo-url">
-            <span className="demo-icon">
-              <Icon name="link" width={27} />
-            </span>
-            <div>
-              <span className="text-xs text-muted">
-                Ide besar. Tautan kecil.
-              </span>
-              <p>
-                jadilink / <strong>cerita-baru</strong>
-              </p>
-            </div>
-            <Icon name="arrow" width={24} />
+            <p className="truncate">
+              jadilink/<strong>cerita-baru</strong>
+            </p>
           </div>
-          <div className="demo-features">
-            <span>
-              <Icon name="link" width={15} />
-              Alias personal
-            </span>
-            <span>
-              <Icon name="chart" width={15} />
-              Analitik 30 hari
-            </span>
-            <span>
-              <Icon name="shield" width={15} />
-              Privasi lebih dulu
-            </span>
+          <div className="demo-clicks">
+            <strong>1.284</strong>
+            <span>klik</span>
           </div>
         </div>
       </main>
-      <footer className="landing-footer">
-        <span>Dibuat agar berbagi terasa lebih sederhana.</span>
-        <span>JADI LINK / SHORTER BY DESIGN</span>
-      </footer>
     </div>
   );
 }

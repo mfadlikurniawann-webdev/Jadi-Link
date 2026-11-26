@@ -84,9 +84,7 @@ export function LinkDetail({ id }: { id: string }) {
       });
       setLink(updated);
       setNotice(
-        updated.isActive
-          ? 'Status aktif disimpan. Batas kedaluwarsa tetap berlaku.'
-          : 'Tautan dinonaktifkan.',
+        updated.isActive ? 'Tautan diaktifkan.' : 'Tautan dinonaktifkan.',
       );
     } catch (failure) {
       setActionError(errorMessage(failure));
@@ -112,7 +110,7 @@ export function LinkDetail({ id }: { id: string }) {
       <div>
         {back}
         <div className="panel p-10 text-sm text-muted">
-          <Spinner label="Memuat detail tautan…" />
+          <Spinner />
         </div>
       </div>
     );
@@ -125,9 +123,9 @@ export function LinkDetail({ id }: { id: string }) {
             <div className="empty-state">
               <Icon name="link" width={30} />
               <h1>Tautan tidak ditemukan.</h1>
-              <p>Tautan mungkin sudah dihapus atau bukan milik akunmu.</p>
+
               <Link href="/dashboard" className="button button-primary mt-5">
-                Kembali ke workspace
+                Kembali
               </Link>
             </div>
           ) : (
@@ -149,17 +147,13 @@ export function LinkDetail({ id }: { id: string }) {
   return (
     <div className="animate-enter">
       {back}
-      <div className="page-heading detail-heading">
+      <div className="page-heading">
         <div>
-          <span className="eyebrow">SATU TAUTAN, BANYAK CERITA</span>
-          <h1>
-            {link.code}
-            <span className="text-olive">.</span>
-          </h1>
+          <h1>{link.code}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <StatusBadge link={link} />
             <span className="text-xs text-muted">
-              Dibuat {dateTime(link.createdAt)}
+              {dateTime(link.createdAt)}
             </span>
           </div>
         </div>
@@ -191,7 +185,6 @@ export function LinkDetail({ id }: { id: string }) {
             <Icon name="link" width={23} />
           </span>
           <div className="min-w-0">
-            <span className="mini-label">TAUTAN PENDEK</span>
             {shortUrl ? (
               <a
                 href={shortUrl}
@@ -218,13 +211,11 @@ export function LinkDetail({ id }: { id: string }) {
         </div>
         <div className="summary-settings">
           <div>
-            <span className="mini-label">KEDALUWARSA</span>
-            <p className="mt-1.5 text-xs font-medium">
-              {dateTime(link.expiresAt)}
-            </p>
+            <span className="text-muted">Kedaluwarsa </span>
+            <span className="font-medium">{dateTime(link.expiresAt)}</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-muted">Status aktif</span>
+            <span className="text-muted">Aktif</span>
             <button
               className={`toggle ${link.isActive ? 'is-on' : ''}`}
               role="switch"
@@ -239,13 +230,7 @@ export function LinkDetail({ id }: { id: string }) {
         </div>
       </section>
       <div className="section-heading">
-        <div>
-          <h2>Kenali klikmu.</h2>
-          <p>
-            Data tersimpan, bukan angka perkiraan real-time. Waktu harian dalam
-            UTC.
-          </p>
-        </div>
+        <h2>Analitik</h2>
         <button
           className="button button-secondary button-small"
           onClick={() => void loadStats()}
@@ -256,22 +241,14 @@ export function LinkDetail({ id }: { id: string }) {
             width={15}
             className={loadingStats ? 'animate-spin' : ''}
           />
-          Perbarui statistik
+          Perbarui
         </button>
-      </div>
-      <div className="info-box mb-5">
-        <Icon name="clock" />
-        <p>
-          Klik ditulis secara batch. Tunggu sekitar 5 detik setelah kunjungan,
-          lalu perbarui statistik. Visitor unik adalah estimasi, bukan jumlah
-          orang.
-        </p>
       </div>
       {statsError != null ? (
         <ErrorBox error={statsError} onRetry={() => void loadStats()} />
       ) : loadingStats && !analytics ? (
         <div className="panel p-10 text-sm text-muted">
-          <Spinner label="Menghitung cerita klikmu…" />
+          <Spinner />
         </div>
       ) : (
         analytics && (
@@ -286,7 +263,7 @@ export function LinkDetail({ id }: { id: string }) {
                   <Icon name="chart" />
                 </div>
                 <strong>{number(analytics.totalClicks)}</strong>
-                <p>Sepanjang riwayat tersimpan</p>
+                <p>Semua waktu</p>
               </div>
               <div className="stat-card">
                 <div className="stat-top">
@@ -294,7 +271,7 @@ export function LinkDetail({ id }: { id: string }) {
                   <Icon name="clock" />
                 </div>
                 <strong>{number(analytics.clicksLast30Days)}</strong>
-                <p>Termasuk hari ini · UTC</p>
+                <p>UTC</p>
               </div>
               <div className="stat-card">
                 <div className="stat-top">
@@ -302,14 +279,13 @@ export function LinkDetail({ id }: { id: string }) {
                   <Icon name="globe" />
                 </div>
                 <strong>{number(analytics.uniqueVisitorsLast30Days)}</strong>
-                <p>Estimasi hash · 30 hari</p>
+                <p>Estimasi · 30 hari</p>
               </div>
             </div>
             <ClickChart data={analytics.dailyClicks} />
             <div className="breakdown-grid">
               <Breakdown
-                title="Dari mana mereka datang?"
-                caption="Top 10 referrer · 30 hari"
+                title="Referrer"
                 icon="external"
                 total={analytics.clicksLast30Days}
                 rows={analytics.topReferrers.map((item) => ({
@@ -318,8 +294,7 @@ export function LinkDetail({ id }: { id: string }) {
                 }))}
               />
               <Breakdown
-                title="Lintas batas"
-                caption="Negara · 30 hari"
+                title="Negara"
                 icon="globe"
                 total={analytics.clicksLast30Days}
                 rows={analytics.countries.map((item) => ({
@@ -328,8 +303,7 @@ export function LinkDetail({ id }: { id: string }) {
                 }))}
               />
               <Breakdown
-                title="Layar yang mereka pakai"
-                caption="Tipe device · 30 hari"
+                title="Perangkat"
                 icon="grid"
                 total={analytics.clicksLast30Days}
                 rows={analytics.devices.map((item) => ({
@@ -338,18 +312,10 @@ export function LinkDetail({ id }: { id: string }) {
                 }))}
               />
             </div>
-            <p className="mt-4 text-xs text-muted">
-              Snapshot: {dateTime(analytics.period.to)} (waktu perangkat) · Hari
-              grafik tetap UTC.
-            </p>
           </>
         )
       )}
       <div className="danger-zone">
-        <div>
-          <h2>Sudah tidak diperlukan?</h2>
-          <p>Menghapus tautan juga menghapus seluruh riwayat kliknya.</p>
-        </div>
         <button
           className="button button-danger-outline"
           onClick={() => setDeleting(true)}
@@ -365,7 +331,7 @@ export function LinkDetail({ id }: { id: string }) {
           onSaved={(updated) => {
             setLink(updated);
             setEditing(false);
-            setNotice('Perubahan berhasil disimpan. Kode tautan tetap sama.');
+            setNotice('Perubahan disimpan.');
           }}
         />
       )}

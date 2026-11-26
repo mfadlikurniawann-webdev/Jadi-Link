@@ -12,7 +12,7 @@ import { DeleteLinkDialog } from './delete-link-dialog';
 import { LinkEditor } from './link-editor';
 
 export function Dashboard() {
-  const { request, user } = useAuth();
+  const { request } = useAuth();
   const [page, setPage] = useState(1);
   const [revision, setRevision] = useState(0);
   const [data, setData] = useState<LinkList | null>(null);
@@ -60,6 +60,9 @@ export function Dashboard() {
       ),
     [items, filter, search],
   );
+  const activeCount = items.filter(
+    (link) => linkStatus(link) === 'active',
+  ).length;
   const refresh = () => setRevision((value) => value + 1);
   async function toggle(link: ShortLink) {
     setBusy(link.id);
@@ -81,9 +84,7 @@ export function Dashboard() {
           : current,
       );
       setNotice(
-        updated.isActive
-          ? 'Status tautan diaktifkan. Tanggal kedaluwarsa tetap berlaku.'
-          : 'Tautan dinonaktifkan.',
+        updated.isActive ? 'Tautan diaktifkan.' : 'Tautan dinonaktifkan.',
       );
     } catch (failure) {
       setActionError(failure);
@@ -94,13 +95,7 @@ export function Dashboard() {
   return (
     <div className="animate-enter">
       <div className="page-heading">
-        <div>
-          <span className="eyebrow">RUANG TAUTANMU</span>
-          <h1>
-            Semua bermula dari satu link<span className="text-olive">.</span>
-          </h1>
-          <p>Kelola, bagikan, lalu lihat cerita di balik setiap klik.</p>
-        </div>
+        <h1>Tautan</h1>
         <button
           className="button button-primary"
           onClick={() => setEditor('new')}
@@ -110,45 +105,27 @@ export function Dashboard() {
           Buat tautan
         </button>
       </div>
-      <div className="stats-grid dashboard-stats">
+      <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-top">
-            <span>Ditampilkan</span>
+            <span>Di halaman ini</span>
             <Icon name="link" />
           </div>
           <strong>{loading ? '—' : number(items.length)}</strong>
-          <p>Tautan di halaman ini</p>
         </div>
         <div className="stat-card">
           <div className="stat-top">
-            <span>Sedang aktif</span>
-            <span className="green-dot" />
+            <span>Aktif</span>
+            <span className="dot dot-green" />
           </div>
-          <strong>
-            {loading
-              ? '—'
-              : number(
-                  items.filter((link) => linkStatus(link) === 'active').length,
-                )}
-          </strong>
-          <p>Aktif dan belum kedaluwarsa</p>
+          <strong>{loading ? '—' : number(activeCount)}</strong>
         </div>
-        <div className="stat-card stat-card-note">
-          <span className="mini-label">SEDIKIT CATATAN</span>
-          <p>
-            Link yang pendek.
-            <br />
-            <strong>Cerita yang terus tumbuh.</strong>
-          </p>
-          <span className="text-xs text-muted">
-            Buka detail tautan untuk melihat analitik.
-          </span>
-          <Icon
-            name="arrow"
-            className="stat-note-arrow"
-            width={36}
-            height={36}
-          />
+        <div className="stat-card">
+          <div className="stat-top">
+            <span>Tidak aktif</span>
+            <span className="dot dot-dim" />
+          </div>
+          <strong>{loading ? '—' : number(items.length - activeCount)}</strong>
         </div>
       </div>
       {notice && (
@@ -170,32 +147,12 @@ export function Dashboard() {
         </div>
       )}
       <section className="panel">
-        <div className="panel-toolbar">
-          <div>
-            <h2 className="font-semibold">Koleksi tautan</h2>
-            <p className="mt-1 text-xs text-muted">
-              Hanya tautan milik {user?.email}.
-            </p>
-          </div>
-          <button
-            className="button button-quiet"
-            onClick={refresh}
-            disabled={loading || Boolean(busy)}
-          >
-            <Icon
-              name="refresh"
-              width={16}
-              className={loading ? 'animate-spin' : ''}
-            />
-            Muat ulang
-          </button>
-        </div>
         <div className="link-filters">
           <div className="search-field">
             <Icon name="search" width={17} />
             <input
               aria-label="Cari di halaman ini"
-              placeholder="Cari di halaman ini…"
+              placeholder="Cari…"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -206,12 +163,25 @@ export function Dashboard() {
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
             >
-              <option value="all">Semua status</option>
+              <option value="all">Semua</option>
               <option value="active">Aktif</option>
               <option value="inactive">Nonaktif</option>
               <option value="expired">Kedaluwarsa</option>
             </select>
           </label>
+          <button
+            className="icon-button bordered"
+            onClick={refresh}
+            disabled={loading || Boolean(busy)}
+            aria-label="Muat ulang"
+            title="Muat ulang"
+          >
+            <Icon
+              name="refresh"
+              width={16}
+              className={loading ? 'animate-spin' : ''}
+            />
+          </button>
         </div>
         {error != null && (
           <div className="px-5 pb-5">
@@ -245,11 +215,7 @@ export function Dashboard() {
                 ? 'Belum ada yang cocok.'
                 : 'Tautan pertamamu menunggu.'}
             </h3>
-            <p>
-              {items.length
-                ? 'Coba kata lain atau ubah filter. Pencarian hanya untuk halaman ini.'
-                : 'Mulai dari URL yang ingin kamu bagikan. Kami bantu mempersingkatnya.'}
-            </p>
+            {items.length > 0 && <p>Coba kata atau filter lain.</p>}
             {!items.length && (
               <button
                 className="button button-primary mt-5"
@@ -385,20 +351,13 @@ export function Dashboard() {
           </div>
         </div>
       </section>
-      <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-muted">
-        <Icon name="shield" width={14} className="mt-0.5 shrink-0" />
-        Angka di atas hanya untuk halaman ini. Statistik klik tersedia pada
-        detail masing-masing tautan.
-      </p>
       {editor && (
         <LinkEditor
           link={editor === 'new' ? undefined : editor}
           onClose={() => setEditor(null)}
           onSaved={() => {
             setNotice(
-              editor === 'new'
-                ? 'Tautan baru siap dibagikan.'
-                : 'Perubahan berhasil disimpan.',
+              editor === 'new' ? 'Tautan dibuat.' : 'Perubahan disimpan.',
             );
             setEditor(null);
             if (page !== 1) setPage(1);
@@ -412,7 +371,7 @@ export function Dashboard() {
           onClose={() => setDeleting(null)}
           onDeleted={() => {
             setDeleting(null);
-            setNotice('Tautan dan statistiknya sudah dihapus.');
+            setNotice('Tautan dihapus.');
             if (items.length === 1 && page > 1) setPage(page - 1);
             else refresh();
           }}
