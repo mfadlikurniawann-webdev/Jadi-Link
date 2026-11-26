@@ -710,7 +710,7 @@ node --test "deploy/test/*.test.mjs"
 Di Linux yang memiliki `nginx`, `openssl`, `curl`, dan `python3`, tanpa root:
 
 ```sh
-NGINX=/usr/sbin/nginx deploy/test/nginx-smoke.sh
+NGINX_BIN=/usr/sbin/nginx deploy/test/nginx-smoke.sh
 ```
 
 Smoke test menjalankan nginx sungguhan di port 18080/18443 dengan sertifikat
@@ -858,10 +858,10 @@ perubahan schema, migrasi baru, atau konfigurasi deployment pada fase ini.
 Verifikasi fase 8: **10 tes kontrak deployment** (`node --test`), backend
 **212 unit + 118 HTTP**, format/lint/build backend lulus. Validator env backend
 menolak template production mentah (secret placeholder) dan menerimanya setelah
-secret diisi. Script lolos `bash -n`; allowlist Cloudflare dibuat dengan
-`update-cloudflare-ips.sh` itu sendiri. `nginx-smoke.sh` disiapkan untuk nginx
-1.24 (Ubuntu 24.04) tetapi **belum dijalankan** di lingkungan pengembangan ini;
-jalankan di Linux sebelum go-live. Deployment ke server sungguhan belum
+secret diisi. Script lolos `bash -n` dan shellcheck 0.9; allowlist Cloudflare
+dibuat dengan `update-cloudflare-ips.sh` itu sendiri. `nginx-smoke.sh` lulus
+**13/13 cek** dengan nginx 1.24.0 paket Ubuntu 24.04 (WSL, tanpa root).
+Deployment ke server sungguhan belum
 dilakukan karena domain dan VPS belum ditentukan. Tidak ada perubahan kode
 aplikasi, schema, atau migrasi.
 

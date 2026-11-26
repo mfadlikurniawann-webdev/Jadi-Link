@@ -3,17 +3,22 @@
 # Runs a real nginx on high ports with throwaway certificates and an echo
 # upstream, then checks the origin's security behaviour.
 # Requires: nginx, openssl, curl, python3.
-# Usage: NGINX=/usr/sbin/nginx deploy/test/nginx-smoke.sh
+# Usage: NGINX_BIN=/usr/sbin/nginx deploy/test/nginx-smoke.sh
+# (Not "NGINX": nginx itself reads that variable for inherited sockets.)
 set -euo pipefail
 
-NGINX="${NGINX:-nginx}"
+NGINX_BIN="${NGINX_BIN:-nginx}"
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 work="$(mktemp -d)"
 echo_pid=""
 
 cleanup() {
-  [[ -f "$work/nginx.pid" ]] && "$NGINX" -p "$work" -c "$work/nginx.conf" -e "$work/logs/error.log" -s stop 2>/dev/null || true
-  [[ -n "$echo_pid" ]] && kill "$echo_pid" 2>/dev/null || true
+  if [[ -f "$work/nginx.pid" ]]; then
+    "$NGINX_BIN" -p "$work" -c "$work/nginx.conf" -e "$work/logs/error.log" -s stop 2>/dev/null || true
+  fi
+  if [[ -n "$echo_pid" ]]; then
+    kill "$echo_pid" 2>/dev/null || true
+  fi
   rm -rf "$work"
 }
 trap cleanup EXIT
@@ -55,11 +60,12 @@ http {
   fastcgi_temp_path $work/tmp/fastcgi;
   uwsgi_temp_path $work/tmp/uwsgi;
   scgi_temp_path $work/tmp/scgi;
+  access_log $work/logs/access.log;
   include $work/sites/jadi-link.conf;
 }
 EOF
 
-ng() { "$NGINX" -p "$work" -c "$work/nginx.conf" -e "$work/logs/error.log" "$@"; }
+ng() { "$NGINX_BIN" -p "$work" -c "$work/nginx.conf" -e "$work/logs/error.log" "$@"; }
 
 # Echo upstream that returns the request headers it received as JSON.
 cat >"$work/echo.py" <<'EOF'
