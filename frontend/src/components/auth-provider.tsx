@@ -1,5 +1,6 @@
 'use client';
 
+import { tr } from '@/lib/i18n';
 import {
   createContext,
   useCallback,
@@ -76,7 +77,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       options: Omit<ApiOptions, 'token'> = {},
     ): Promise<T> => {
       const active = current.current;
-      if (!active) throw new ApiError(401, 'Silakan masuk untuk melanjutkan.');
+      if (!active)
+        throw new ApiError(
+          401,
+          tr('Silakan masuk untuk melanjutkan.', 'Please sign in to continue.'),
+        );
       try {
         return await apiFetch<T>(path, { ...options, token: active.token });
       } catch (error) {

@@ -1,3 +1,5 @@
+import { tr } from './i18n';
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -50,13 +52,26 @@ const API_URL = resolveApiUrl(
   process.env.NODE_ENV === 'production',
 );
 
-const messages: Record<string, string> = {
-  'Invalid email or password': 'Email atau kata sandi tidak cocok.',
-  'Email is already registered': 'Email sudah terdaftar. Silakan masuk.',
-  'Alias is already in use': 'Alias sudah digunakan. Coba alias lain.',
-  'alias is reserved': 'Alias ini dicadangkan untuk sistem.',
-  'targetUrl cannot point to the short-link hostname':
-    'URL tujuan tidak boleh mengarah ke domain short link sendiri.',
+const messages: Record<string, () => string> = {
+  'Invalid email or password': () =>
+    tr('Email atau kata sandi tidak cocok.', 'Incorrect email or password.'),
+  'Email is already registered': () =>
+    tr(
+      'Email sudah terdaftar. Silakan masuk.',
+      'Email is already registered. Please sign in.',
+    ),
+  'Alias is already in use': () =>
+    tr(
+      'Alias sudah digunakan. Coba alias lain.',
+      'Alias is already taken. Try another one.',
+    ),
+  'alias is reserved': () =>
+    tr('Alias ini dicadangkan untuk sistem.', 'This alias is reserved.'),
+  'targetUrl cannot point to the short-link hostname': () =>
+    tr(
+      'URL tujuan tidak boleh mengarah ke domain short link sendiri.',
+      'Destination URL cannot point to the short-link domain.',
+    ),
 };
 
 export function isAbortError(error: unknown): boolean {
@@ -66,7 +81,10 @@ export function isAbortError(error: unknown): boolean {
 export function errorMessage(error: unknown): string {
   return error instanceof ApiError
     ? error.message
-    : 'Terjadi kendala. Silakan coba lagi.';
+    : tr(
+        'Terjadi kendala. Silakan coba lagi.',
+        'Something went wrong. Please try again.',
+      );
 }
 
 export async function apiFetch<T>(
@@ -130,10 +148,26 @@ export async function apiFetch<T>(
           : null;
       const message =
         response.status >= 500
-          ? 'Server sedang mengalami kendala. Silakan coba lagi.'
+          ? tr(
+              'Server sedang mengalami kendala. Silakan coba lagi.',
+              'The server is having trouble. Please try again.',
+            )
           : response.status === 429
-            ? `Terlalu banyak permintaan. Coba lagi ${retryAfter === null ? 'sebentar lagi' : `dalam ${Math.max(1, retryAfter)} detik`}.`
-            : messages[raw] || raw || 'Permintaan tidak dapat diproses.';
+            ? retryAfter === null
+              ? tr(
+                  'Terlalu banyak permintaan. Coba lagi sebentar lagi.',
+                  'Too many requests. Try again shortly.',
+                )
+              : tr(
+                  `Terlalu banyak permintaan. Coba lagi dalam ${Math.max(1, retryAfter)} detik.`,
+                  `Too many requests. Try again in ${Math.max(1, retryAfter)} seconds.`,
+                )
+            : messages[raw]?.() ||
+              raw ||
+              tr(
+                'Permintaan tidak dapat diproses.',
+                'The request could not be processed.',
+              );
       throw new ApiError(
         response.status,
         message,
@@ -142,17 +176,32 @@ export async function apiFetch<T>(
       );
     }
     if (data === null)
-      throw new ApiError(502, 'Respons server tidak dapat dibaca.');
+      throw new ApiError(
+        502,
+        tr(
+          'Respons server tidak dapat dibaca.',
+          'Could not read the server response.',
+        ),
+      );
     return data as T;
   } catch (error) {
     if (timedOut)
-      throw new ApiError(0, 'Koneksi terlalu lama. Silakan coba lagi.');
+      throw new ApiError(
+        0,
+        tr(
+          'Koneksi terlalu lama. Silakan coba lagi.',
+          'The connection timed out. Please try again.',
+        ),
+      );
     if (options.signal?.aborted)
       throw new DOMException('Request cancelled', 'AbortError');
     if (error instanceof ApiError) throw error;
     throw new ApiError(
       0,
-      'Tidak dapat terhubung ke API. Periksa koneksi dan pastikan backend berjalan.',
+      tr(
+        'Tidak dapat terhubung ke API. Periksa koneksi dan pastikan backend berjalan.',
+        'Cannot reach the API. Check your connection and make sure the backend is running.',
+      ),
     );
   } finally {
     clearTimeout(timer);

@@ -1,5 +1,6 @@
 'use client';
 
+import { useI18n } from '@/lib/use-i18n';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/components/auth-provider';
@@ -13,6 +14,7 @@ import { LinkEditor } from './link-editor';
 
 export function Dashboard() {
   const { request } = useAuth();
+  const { t } = useI18n();
   const [page, setPage] = useState(1);
   const [revision, setRevision] = useState(0);
   const [data, setData] = useState<LinkList | null>(null);
@@ -84,7 +86,9 @@ export function Dashboard() {
           : current,
       );
       setNotice(
-        updated.isActive ? 'Tautan diaktifkan.' : 'Tautan dinonaktifkan.',
+        updated.isActive
+          ? t('Tautan diaktifkan.', 'Link activated.')
+          : t('Tautan dinonaktifkan.', 'Link deactivated.'),
       );
     } catch (failure) {
       setActionError(failure);
@@ -95,34 +99,33 @@ export function Dashboard() {
   return (
     <div className="animate-enter">
       <div className="page-heading">
-        <h1>Tautan</h1>
+        <h1>{t('Tautan', 'Links')}</h1>
         <button
           className="button button-primary"
           onClick={() => setEditor('new')}
           disabled={Boolean(busy)}
         >
           <Icon name="plus" width={18} />
-          Buat tautan
+          {t('Buat tautan', 'New link')}
         </button>
       </div>
-      <div className="stats-grid">
+      <div className="stats-grid stagger">
         <div className="stat-card">
           <div className="stat-top">
-            <span>Di halaman ini</span>
-            <Icon name="link" />
+            <span>{t('Di halaman ini', 'On this page')}</span>
           </div>
           <strong>{loading ? '—' : number(items.length)}</strong>
         </div>
         <div className="stat-card">
           <div className="stat-top">
-            <span>Aktif</span>
-            <span className="dot dot-green" />
+            <span>{t('Aktif', 'Active')}</span>
+            <span className="dot dot-accent" />
           </div>
           <strong>{loading ? '—' : number(activeCount)}</strong>
         </div>
         <div className="stat-card">
           <div className="stat-top">
-            <span>Tidak aktif</span>
+            <span>{t('Tidak aktif', 'Not active')}</span>
             <span className="dot dot-dim" />
           </div>
           <strong>{loading ? '—' : number(items.length - activeCount)}</strong>
@@ -134,7 +137,7 @@ export function Dashboard() {
           <p className="flex-1">{notice}</p>
           <button
             className="icon-button"
-            aria-label="Tutup notifikasi"
+            aria-label={t('Tutup notifikasi', 'Dismiss notice')}
             onClick={() => setNotice(null)}
           >
             <Icon name="close" width={16} />
@@ -151,30 +154,32 @@ export function Dashboard() {
           <div className="search-field">
             <Icon name="search" width={17} />
             <input
-              aria-label="Cari di halaman ini"
-              placeholder="Cari…"
+              aria-label={t('Cari di halaman ini', 'Search this page')}
+              placeholder={t('Cari…', 'Search…')}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
           </div>
           <label className="filter-select">
-            <span className="sr-only">Filter status halaman ini</span>
+            <span className="sr-only">
+              {t('Filter status halaman ini', 'Filter status on this page')}
+            </span>
             <select
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
             >
-              <option value="all">Semua</option>
-              <option value="active">Aktif</option>
-              <option value="inactive">Nonaktif</option>
-              <option value="expired">Kedaluwarsa</option>
+              <option value="all">{t('Semua', 'All')}</option>
+              <option value="active">{t('Aktif', 'Active')}</option>
+              <option value="inactive">{t('Nonaktif', 'Inactive')}</option>
+              <option value="expired">{t('Kedaluwarsa', 'Expired')}</option>
             </select>
           </label>
           <button
             className="icon-button bordered"
             onClick={refresh}
             disabled={loading || Boolean(busy)}
-            aria-label="Muat ulang"
-            title="Muat ulang"
+            aria-label={t('Muat ulang', 'Reload')}
+            title={t('Muat ulang', 'Reload')}
           >
             <Icon
               name="refresh"
@@ -191,7 +196,7 @@ export function Dashboard() {
         {loading ? (
           <div
             className="loading-rows"
-            aria-label="Memuat daftar tautan"
+            aria-label={t('Memuat daftar tautan', 'Loading links')}
             role="status"
           >
             {[0, 1, 2, 3].map((item) => (
@@ -212,17 +217,24 @@ export function Dashboard() {
             </span>
             <h3>
               {items.length
-                ? 'Belum ada yang cocok.'
-                : 'Tautan pertamamu menunggu.'}
+                ? t('Belum ada yang cocok.', 'No matches yet.')
+                : t('Tautan pertamamu menunggu.', 'Your first link awaits.')}
             </h3>
-            {items.length > 0 && <p>Coba kata atau filter lain.</p>}
+            {items.length > 0 && (
+              <p>
+                {t(
+                  'Coba kata atau filter lain.',
+                  'Try another word or filter.',
+                )}
+              </p>
+            )}
             {!items.length && (
               <button
                 className="button button-primary mt-5"
                 onClick={() => setEditor('new')}
               >
                 <Icon name="plus" width={16} />
-                Buat tautan pertama
+                {t('Buat tautan pertama', 'Create your first link')}
               </button>
             )}
           </div>
@@ -232,11 +244,13 @@ export function Dashboard() {
               <table className="links-table">
                 <thead>
                   <tr>
-                    <th>Tautan</th>
+                    <th>{t('Tautan', 'Link')}</th>
                     <th>Status</th>
-                    <th>Dibuat</th>
+                    <th>{t('Dibuat', 'Created')}</th>
                     <th>
-                      <span className="sr-only">Tindakan</span>
+                      <span className="sr-only">
+                        {t('Tindakan', 'Actions')}
+                      </span>
                     </th>
                   </tr>
                 </thead>
@@ -244,10 +258,7 @@ export function Dashboard() {
                   {filtered.map((link) => (
                     <tr key={link.id}>
                       <td>
-                        <div className="flex min-w-0 items-center gap-3">
-                          <span className="row-link-icon">
-                            <Icon name="link" />
-                          </span>
+                        <div className="min-w-0">
                           <div className="min-w-0">
                             <Link
                               className="code-link"
@@ -274,14 +285,14 @@ export function Dashboard() {
                           <CopyButton
                             compact
                             value={link.shortUrl}
-                            label={`Salin ${link.code}`}
+                            label={`${t('Salin', 'Copy')} ${link.code}`}
                           />
                           <button
                             className={`toggle ${link.isActive ? 'is-on' : ''}`}
                             type="button"
                             role="switch"
                             aria-checked={link.isActive}
-                            aria-label={`${link.isActive ? 'Nonaktifkan' : 'Aktifkan'} ${link.code}`}
+                            aria-label={`${link.isActive ? t('Nonaktifkan', 'Deactivate') : t('Aktifkan', 'Activate')} ${link.code}`}
                             disabled={loading || Boolean(busy)}
                             onClick={() => void toggle(link)}
                           >
@@ -294,7 +305,7 @@ export function Dashboard() {
                           <button
                             className="icon-button"
                             aria-label={`Edit ${link.code}`}
-                            title="Edit tautan"
+                            title={t('Edit tautan', 'Edit link')}
                             onClick={() => setEditor(link)}
                             disabled={Boolean(busy)}
                           >
@@ -302,8 +313,8 @@ export function Dashboard() {
                           </button>
                           <button
                             className="icon-button danger-hover"
-                            aria-label={`Hapus ${link.code}`}
-                            title="Hapus tautan"
+                            aria-label={`${t('Hapus', 'Delete')} ${link.code}`}
+                            title={t('Hapus tautan', 'Delete link')}
                             onClick={() => setDeleting(link)}
                             disabled={Boolean(busy)}
                           >
@@ -321,9 +332,12 @@ export function Dashboard() {
         <div className="pagination">
           <p>
             {loading ? (
-              <Spinner label="Memuat…" />
+              <Spinner />
             ) : (
-              `${filtered.length} tautan ditampilkan · halaman ${page}`
+              t(
+                `${filtered.length} tautan ditampilkan · halaman ${page}`,
+                `${filtered.length} ${filtered.length === 1 ? 'link' : 'links'} shown · page ${page}`,
+              )
             )}
           </p>
           <div className="flex items-center gap-2">
@@ -333,7 +347,7 @@ export function Dashboard() {
               onClick={() => setPage(page - 1)}
             >
               <Icon name="back" width={15} />
-              Sebelumnya
+              {t('Sebelumnya', 'Previous')}
             </button>
             <button
               className="button button-secondary button-small"
@@ -345,7 +359,7 @@ export function Dashboard() {
               }
               onClick={() => setPage(page + 1)}
             >
-              Berikutnya
+              {t('Berikutnya', 'Next')}
               <Icon name="arrow" width={15} />
             </button>
           </div>
@@ -357,7 +371,9 @@ export function Dashboard() {
           onClose={() => setEditor(null)}
           onSaved={() => {
             setNotice(
-              editor === 'new' ? 'Tautan dibuat.' : 'Perubahan disimpan.',
+              editor === 'new'
+                ? t('Tautan dibuat.', 'Link created.')
+                : t('Perubahan disimpan.', 'Changes saved.'),
             );
             setEditor(null);
             if (page !== 1) setPage(1);
@@ -371,7 +387,7 @@ export function Dashboard() {
           onClose={() => setDeleting(null)}
           onDeleted={() => {
             setDeleting(null);
-            setNotice('Tautan dihapus.');
+            setNotice(t('Tautan dihapus.', 'Link deleted.'));
             if (items.length === 1 && page > 1) setPage(page - 1);
             else refresh();
           }}

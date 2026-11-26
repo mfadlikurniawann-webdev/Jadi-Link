@@ -1,28 +1,25 @@
+'use client';
+
+import { useI18n } from '@/lib/use-i18n';
 import { number } from '@/lib/format';
-import { Icon } from '@/components/icons';
-import type { IconName } from '@/components/icons';
 
 export function Breakdown({
   title,
-  icon,
   total,
   rows,
 }: {
   title: string;
-  icon: IconName;
   total: number;
   rows: { label: string; clicks: number }[];
 }) {
+  const { t } = useI18n();
   return (
     <section className="panel breakdown">
-      <div className="breakdown-heading">
-        <span className="row-link-icon">
-          <Icon name={icon} width={18} />
-        </span>
-        <h2 className="font-semibold">{title}</h2>
-      </div>
+      <h2>{title}</h2>
       {rows.length === 0 ? (
-        <div className="breakdown-empty">Belum ada data.</div>
+        <div className="breakdown-empty">
+          {t('Belum ada data.', 'No data yet.')}
+        </div>
       ) : (
         <div className="breakdown-rows">
           {rows.map((row) => (

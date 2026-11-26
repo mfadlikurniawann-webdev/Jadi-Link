@@ -1,9 +1,11 @@
 'use client';
 
+import { useI18n } from '@/lib/use-i18n';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Brand } from '@/components/app-shell';
+import { LanguageSwitch } from '@/components/language-switch';
 import { useAuth } from '@/components/auth-provider';
 import { Icon } from '@/components/icons';
 import { ErrorBox, LoadingPage, Spinner } from '@/components/ui';
@@ -13,6 +15,7 @@ import { safeReturnTo, validateCredentials } from '@/lib/validation';
 
 export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const register = mode === 'register';
+  const { t } = useI18n();
   const { user, signIn } = useAuth();
   const router = useRouter();
   const search = useSearchParams();
@@ -51,16 +54,28 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     <div className="auth-page">
       <div className="auth-top">
         <Brand />
-        <Link href="/" className="back-link">
-          <Icon name="back" width={16} /> Beranda
-        </Link>
+        <div className="flex items-center gap-3">
+          <LanguageSwitch />
+          <Link href="/" className="back-link">
+            <Icon name="back" width={16} /> {t('Beranda', 'Home')}
+          </Link>
+        </div>
       </div>
       <main className="auth-card animate-enter" id="main-content">
-        <h1>{register ? 'Buat akun baru.' : 'Masuk, lalu bagikan.'}</h1>
+        <h1>
+          {register
+            ? t('Buat akun baru.', 'Create your account.')
+            : t('Masuk, lalu bagikan.', 'Sign in and share.')}
+        </h1>
         {search.get('reason') === 'expired' && (
           <div className="info-box mb-5">
             <Icon name="clock" />
-            <p>Sesimu sudah berakhir. Silakan masuk lagi.</p>
+            <p>
+              {t(
+                'Sesimu sudah berakhir. Silakan masuk lagi.',
+                'Your session has ended. Please sign in again.',
+              )}
+            </p>
           </div>
         )}
         {error && (
@@ -71,14 +86,14 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
         <form onSubmit={(event) => void submit(event)} className="space-y-5">
           <div>
             <label htmlFor="email" className="field-label">
-              Alamat email
+              {t('Alamat email', 'Email address')}
             </label>
             <input
               id="email"
               type="email"
               autoComplete="email"
               className="input"
-              placeholder="nama@email.com"
+              placeholder={t('nama@email.com', 'name@email.com')}
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
@@ -88,7 +103,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
           </div>
           <div>
             <label htmlFor="password" className="field-label">
-              Kata sandi
+              {t('Kata sandi', 'Password')}
             </label>
             <div className="relative">
               <input
@@ -96,7 +111,11 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
                 type={visible ? 'text' : 'password'}
                 autoComplete={register ? 'new-password' : 'current-password'}
                 className="input pr-12"
-                placeholder={register ? 'Minimal 12 karakter' : 'Kata sandimu'}
+                placeholder={
+                  register
+                    ? t('Minimal 12 karakter', 'At least 12 characters')
+                    : t('Kata sandimu', 'Your password')
+                }
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
@@ -107,7 +126,9 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
                 className="password-toggle"
                 onClick={() => setVisible(!visible)}
                 aria-label={
-                  visible ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'
+                  visible
+                    ? t('Sembunyikan kata sandi', 'Hide password')
+                    : t('Tampilkan kata sandi', 'Show password')
                 }
               >
                 <Icon name="eye" width={18} />
@@ -120,22 +141,34 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
             disabled={busy}
           >
             {busy ? (
-              <Spinner label={register ? 'Membuat akun…' : 'Memeriksa akun…'} />
+              <Spinner
+                label={
+                  register
+                    ? t('Membuat akun…', 'Creating account…')
+                    : t('Memeriksa akun…', 'Checking account…')
+                }
+              />
             ) : (
               <>
-                {register ? 'Buat akun' : 'Masuk ke workspace'}
+                {register
+                  ? t('Buat akun', 'Create account')
+                  : t('Masuk ke workspace', 'Sign in')}
                 <Icon name="arrow" width={17} />
               </>
             )}
           </button>
         </form>
         <p className="mt-6 text-center text-sm text-muted">
-          {register ? 'Sudah punya akun?' : 'Baru di sini?'}{' '}
+          {register
+            ? t('Sudah punya akun?', 'Already have an account?')
+            : t('Baru di sini?', 'New here?')}{' '}
           <Link
-            className="font-semibold text-accent hover:underline"
+            className="font-medium text-accent hover:underline"
             href={`${register ? '/login' : '/register'}?next=${encodeURIComponent(returnTo)}`}
           >
-            {register ? 'Masuk' : 'Buat akun'}
+            {register
+              ? t('Masuk', 'Sign in')
+              : t('Buat akun', 'Create account')}
           </Link>
         </p>
       </main>

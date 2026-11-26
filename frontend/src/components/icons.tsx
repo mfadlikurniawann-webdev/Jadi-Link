@@ -123,6 +123,7 @@ export function Icon({
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
+      data-icon={name}
       {...props}
     >
       {paths[name]}

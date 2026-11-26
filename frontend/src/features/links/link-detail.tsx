@@ -1,5 +1,6 @@
 'use client';
 
+import { useI18n } from '@/lib/use-i18n';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -17,6 +18,7 @@ import { LinkEditor } from './link-editor';
 
 export function LinkDetail({ id }: { id: string }) {
   const { request } = useAuth();
+  const { t } = useI18n();
   const router = useRouter();
   const [link, setLink] = useState<ShortLink | null>(null);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
@@ -84,7 +86,9 @@ export function LinkDetail({ id }: { id: string }) {
       });
       setLink(updated);
       setNotice(
-        updated.isActive ? 'Tautan diaktifkan.' : 'Tautan dinonaktifkan.',
+        updated.isActive
+          ? t('Tautan diaktifkan.', 'Link activated.')
+          : t('Tautan dinonaktifkan.', 'Link deactivated.'),
       );
     } catch (failure) {
       setActionError(errorMessage(failure));
@@ -95,7 +99,7 @@ export function LinkDetail({ id }: { id: string }) {
   const back = (
     <Link href="/dashboard" className="back-link mb-6">
       <Icon name="back" width={16} />
-      Semua tautan
+      {t('Semua tautan', 'All links')}
     </Link>
   );
   const retry = () => {
@@ -122,10 +126,10 @@ export function LinkDetail({ id }: { id: string }) {
           {error instanceof ApiError && error.status === 404 ? (
             <div className="empty-state">
               <Icon name="link" width={30} />
-              <h1>Tautan tidak ditemukan.</h1>
+              <h1>{t('Tautan tidak ditemukan.', 'Link not found.')}</h1>
 
               <Link href="/dashboard" className="button button-primary mt-5">
-                Kembali
+                {t('Kembali', 'Back')}
               </Link>
             </div>
           ) : (
@@ -139,10 +143,10 @@ export function LinkDetail({ id }: { id: string }) {
   const shortUrl = safeHttpUrl(link.shortUrl);
   const devices = {
     desktop: 'Desktop',
-    mobile: 'Ponsel',
+    mobile: t('Ponsel', 'Mobile'),
     tablet: 'Tablet',
     bot: 'Bot',
-    unknown: 'Tidak diketahui',
+    unknown: t('Tidak diketahui', 'Unknown'),
   };
   return (
     <div className="animate-enter">
@@ -163,7 +167,7 @@ export function LinkDetail({ id }: { id: string }) {
             onClick={() => setEditing(true)}
           >
             <Icon name="edit" width={16} />
-            Edit tautan
+            {t('Edit tautan', 'Edit link')}
           </button>
           <CopyButton value={link.shortUrl} />
         </div>
@@ -181,9 +185,6 @@ export function LinkDetail({ id }: { id: string }) {
       )}
       <section className="panel link-summary">
         <div className="summary-url">
-          <span className="row-link-icon">
-            <Icon name="link" width={23} />
-          </span>
           <div className="min-w-0">
             {shortUrl ? (
               <a
@@ -211,15 +212,15 @@ export function LinkDetail({ id }: { id: string }) {
         </div>
         <div className="summary-settings">
           <div>
-            <span className="text-muted">Kedaluwarsa </span>
+            <span className="text-muted">{t('Kedaluwarsa', 'Expires')} </span>
             <span className="font-medium">{dateTime(link.expiresAt)}</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-muted">Aktif</span>
+            <span className="text-muted">{t('Aktif', 'Active')}</span>
             <button
               className={`toggle ${link.isActive ? 'is-on' : ''}`}
               role="switch"
-              aria-label="Status aktif tautan"
+              aria-label={t('Status aktif tautan', 'Link active status')}
               aria-checked={link.isActive}
               onClick={() => void toggle()}
               disabled={busy}
@@ -230,7 +231,7 @@ export function LinkDetail({ id }: { id: string }) {
         </div>
       </section>
       <div className="section-heading">
-        <h2>Analitik</h2>
+        <h2>{t('Analitik', 'Analytics')}</h2>
         <button
           className="button button-secondary button-small"
           onClick={() => void loadStats()}
@@ -241,7 +242,7 @@ export function LinkDetail({ id }: { id: string }) {
             width={15}
             className={loadingStats ? 'animate-spin' : ''}
           />
-          Perbarui
+          {t('Perbarui', 'Refresh')}
         </button>
       </div>
       {statsError != null ? (
@@ -254,48 +255,45 @@ export function LinkDetail({ id }: { id: string }) {
         analytics && (
           <>
             <div
-              className={`stats-grid ${loadingStats ? 'opacity-60' : ''}`}
+              className={`stats-grid stagger ${loadingStats ? 'opacity-60' : ''}`}
               aria-busy={loadingStats}
             >
               <div className="stat-card">
                 <div className="stat-top">
-                  <span>Total klik</span>
-                  <Icon name="chart" />
+                  <span>{t('Total klik', 'Total clicks')}</span>
                 </div>
                 <strong>{number(analytics.totalClicks)}</strong>
-                <p>Semua waktu</p>
+                <p>{t('Semua waktu', 'All time')}</p>
               </div>
               <div className="stat-card">
                 <div className="stat-top">
-                  <span>Klik 30 hari</span>
-                  <Icon name="clock" />
+                  <span>{t('Klik 30 hari', 'Clicks, 30 days')}</span>
                 </div>
                 <strong>{number(analytics.clicksLast30Days)}</strong>
                 <p>UTC</p>
               </div>
               <div className="stat-card">
                 <div className="stat-top">
-                  <span>Visitor unik</span>
-                  <Icon name="globe" />
+                  <span>{t('Visitor unik', 'Unique visitors')}</span>
                 </div>
                 <strong>{number(analytics.uniqueVisitorsLast30Days)}</strong>
-                <p>Estimasi · 30 hari</p>
+                <p>{t('Estimasi · 30 hari', 'Estimated · 30 days')}</p>
               </div>
             </div>
             <ClickChart data={analytics.dailyClicks} />
             <div className="breakdown-grid">
               <Breakdown
                 title="Referrer"
-                icon="external"
                 total={analytics.clicksLast30Days}
                 rows={analytics.topReferrers.map((item) => ({
-                  label: item.referrer ?? 'Langsung / tidak diketahui',
+                  label:
+                    item.referrer ??
+                    t('Langsung / tidak diketahui', 'Direct / unknown'),
                   clicks: item.clicks,
                 }))}
               />
               <Breakdown
-                title="Negara"
-                icon="globe"
+                title={t('Negara', 'Countries')}
                 total={analytics.clicksLast30Days}
                 rows={analytics.countries.map((item) => ({
                   label: countryName(item.country),
@@ -303,8 +301,7 @@ export function LinkDetail({ id }: { id: string }) {
                 }))}
               />
               <Breakdown
-                title="Perangkat"
-                icon="grid"
+                title={t('Perangkat', 'Devices')}
                 total={analytics.clicksLast30Days}
                 rows={analytics.devices.map((item) => ({
                   label: devices[item.device],
@@ -321,7 +318,7 @@ export function LinkDetail({ id }: { id: string }) {
           onClick={() => setDeleting(true)}
         >
           <Icon name="trash" width={16} />
-          Hapus tautan
+          {t('Hapus tautan', 'Delete link')}
         </button>
       </div>
       {editing && (
@@ -331,7 +328,7 @@ export function LinkDetail({ id }: { id: string }) {
           onSaved={(updated) => {
             setLink(updated);
             setEditing(false);
-            setNotice('Perubahan disimpan.');
+            setNotice(t('Perubahan disimpan.', 'Changes saved.'));
           }}
         />
       )}

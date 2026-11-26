@@ -1,55 +1,53 @@
+'use client';
+
+import { useI18n } from '@/lib/use-i18n';
 import Link from 'next/link';
 import { Brand } from '@/components/app-shell';
+import { LanguageSwitch } from '@/components/language-switch';
 import { Icon } from '@/components/icons';
+import { LandingCursor } from '@/features/landing/cursor';
+import { HeroCard } from '@/features/landing/hero-card';
 
 export default function HomePage() {
+  const { t } = useI18n();
   return (
     <div className="landing">
+      <LandingCursor />
       <header className="landing-header">
         <Brand />
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <LanguageSwitch />
           <Link href="/login" className="button button-quiet button-small">
-            Masuk
+            {t('Masuk', 'Sign in')}
           </Link>
           <Link href="/register" className="button button-primary button-small">
-            Daftar
+            {t('Daftar', 'Sign up')}
           </Link>
         </div>
       </header>
-      <main id="main-content" className="landing-hero animate-enter">
-        <span className="landing-tag">
-          <span className="dot dot-green" />
-          URL shortener + analitik
-        </span>
-        <h1>
-          Link singkat.
-          <br />
-          <span>Klik terukur.</span>
-        </h1>
-        <p>Persingkat URL dan pantau setiap kliknya.</p>
-        <div className="mt-9 flex flex-wrap justify-center gap-3">
-          <Link href="/register" className="button button-primary">
-            Mulai gratis
-            <Icon name="arrow" width={18} />
-          </Link>
-          <Link href="/login" className="button button-secondary">
-            Sudah punya akun
-          </Link>
-        </div>
-        <div className="landing-demo">
-          <span className="demo-icon">
-            <Icon name="link" width={24} />
-          </span>
-          <div className="demo-url">
-            <p className="truncate">
-              jadilink/<strong>cerita-baru</strong>
-            </p>
-          </div>
-          <div className="demo-clicks">
-            <strong>1.284</strong>
-            <span>klik</span>
+      <main id="main-content" className="landing-hero">
+        <div className="hero-copy stagger">
+          <h1>
+            <span>{t('Link jadi ringkas.', 'Links made short.')}</span>
+            <em>{t('Data jadi jelas.', 'Data made clear.')}</em>
+          </h1>
+          <p>
+            {t(
+              'Persingkat URL, lalu lihat dari mana kliknya datang.',
+              'Shorten a URL, then see where its clicks come from.',
+            )}
+          </p>
+          <div className="hero-actions">
+            <Link href="/register" className="button button-primary">
+              {t('Mulai gratis', 'Start free')}
+              <Icon name="arrow" width={18} />
+            </Link>
+            <Link href="/login" className="button button-secondary">
+              {t('Masuk', 'Sign in')}
+            </Link>
           </div>
         </div>
+        <HeroCard />
       </main>
     </div>
   );

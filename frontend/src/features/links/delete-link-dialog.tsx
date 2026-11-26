@@ -1,5 +1,6 @@
 'use client';
 
+import { useI18n } from '@/lib/use-i18n';
 import { useState } from 'react';
 import { useAuth } from '@/components/auth-provider';
 import { ErrorBox, Modal, Spinner } from '@/components/ui';
@@ -17,6 +18,7 @@ export function DeleteLinkDialog({
   onDeleted: () => void;
 }) {
   const { request } = useAuth();
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function remove() {
@@ -33,8 +35,11 @@ export function DeleteLinkDialog({
   return (
     <Modal
       open
-      title="Hapus tautan ini?"
-      description={`“${link.code}” dan statistiknya akan dihapus permanen.`}
+      title={t('Hapus tautan ini?', 'Delete this link?')}
+      description={t(
+        `“${link.code}” dan statistiknya akan dihapus permanen.`,
+        `“${link.code}” and its stats will be permanently deleted.`,
+      )}
       busy={busy}
       onClose={onClose}
     >
@@ -49,7 +54,7 @@ export function DeleteLinkDialog({
           disabled={busy}
           onClick={onClose}
         >
-          Batal
+          {t('Batal', 'Cancel')}
         </button>
         <button
           className="button button-danger"
@@ -57,11 +62,11 @@ export function DeleteLinkDialog({
           onClick={() => void remove()}
         >
           {busy ? (
-            <Spinner label="Menghapus…" />
+            <Spinner label={t('Menghapus…', 'Deleting…')} />
           ) : (
             <>
               <Icon name="trash" width={16} />
-              Ya, hapus tautan
+              {t('Ya, hapus tautan', 'Yes, delete link')}
             </>
           )}
         </button>

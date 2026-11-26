@@ -1,3 +1,4 @@
+import { tr } from './i18n';
 import type { CreateLink, ShortLink, UpdateLink } from './types';
 
 export const LINK_ID_PATTERN =
@@ -19,12 +20,21 @@ export function validateCredentials(
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ||
     email.trim().length > 254
   )
-    return 'Masukkan alamat email yang valid.';
-  if (!password) return 'Masukkan kata sandimu.';
+    return tr(
+      'Masukkan alamat email yang valid.',
+      'Enter a valid email address.',
+    );
+  if (!password) return tr('Masukkan kata sandimu.', 'Enter your password.');
   if (register && [...password].length < 12)
-    return 'Kata sandi minimal 12 karakter.';
+    return tr(
+      'Kata sandi minimal 12 karakter.',
+      'Password must be at least 12 characters.',
+    );
   if (new TextEncoder().encode(password).length > 72)
-    return 'Kata sandi maksimal 72 byte UTF-8. Emoji bisa memakai lebih dari satu byte.';
+    return tr(
+      'Kata sandi maksimal 72 byte UTF-8. Emoji bisa memakai lebih dari satu byte.',
+      'Password can be at most 72 UTF-8 bytes. Emoji may use more than one byte.',
+    );
   return null;
 }
 
@@ -61,7 +71,10 @@ export function linkPayload(
     /[\r\n\\]/.test(targetUrl)
   ) {
     throw new Error(
-      'Gunakan URL HTTP/HTTPS yang valid, tanpa kredensial, maksimal 2.048 karakter.',
+      tr(
+        'Gunakan URL HTTP/HTTPS yang valid, tanpa kredensial, maksimal 2.048 karakter.',
+        'Use a valid HTTP/HTTPS URL without credentials, up to 2,048 characters.',
+      ),
     );
   }
   const payload: CreateLink | UpdateLink = existing
@@ -73,7 +86,10 @@ export function linkPayload(
     const alias = values.alias.trim();
     if (!/^[A-Za-z0-9][A-Za-z0-9_-]{2,63}$/.test(alias))
       throw new Error(
-        'Alias 3–64 karakter: huruf, angka, _ atau -, diawali huruf/angka.',
+        tr(
+          'Alias 3–64 karakter: huruf, angka, _ atau -, diawali huruf/angka.',
+          'Alias must be 3–64 characters: letters, numbers, _ or -, starting with a letter or number.',
+        ),
       );
     (payload as CreateLink).alias = alias;
   }
@@ -82,10 +98,20 @@ export function linkPayload(
   if (changedExpiry && values.expiresAt) {
     const date = new Date(values.expiresAt);
     if (!Number.isFinite(date.getTime()) || date.getTime() <= now)
-      throw new Error('Tanggal kedaluwarsa harus di masa depan.');
+      throw new Error(
+        tr(
+          'Tanggal kedaluwarsa harus di masa depan.',
+          'Expiry date must be in the future.',
+        ),
+      );
     payload.expiresAt = date.toISOString();
   } else if (existing && changedExpiry) payload.expiresAt = null;
   if (existing && Object.keys(payload).length === 0)
-    throw new Error('Belum ada perubahan untuk disimpan.');
+    throw new Error(
+      tr(
+        'Belum ada perubahan untuk disimpan.',
+        'There are no changes to save.',
+      ),
+    );
   return payload;
 }

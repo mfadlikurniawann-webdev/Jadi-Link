@@ -1,21 +1,22 @@
+import { intlLocale, tr } from './i18n';
 import type { ShortLink } from './types';
 
 export const number = (value: number) =>
-  new Intl.NumberFormat('id-ID').format(value);
+  new Intl.NumberFormat(intlLocale()).format(value);
 
 export function dateTime(value: string | null): string {
-  if (!value) return 'Tanpa batas waktu';
+  if (!value) return tr('Tanpa batas waktu', 'No expiry');
   const date = new Date(value);
   return Number.isFinite(date.getTime())
-    ? new Intl.DateTimeFormat('id-ID', {
+    ? new Intl.DateTimeFormat(intlLocale(), {
         dateStyle: 'medium',
         timeStyle: 'short',
       }).format(date)
-    : 'Tanggal tidak valid';
+    : tr('Tanggal tidak valid', 'Invalid date');
 }
 
 export function dayLabel(value: string, detailed = false): string {
-  return new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat(intlLocale(), {
     day: 'numeric',
     month: detailed ? 'long' : 'short',
     timeZone: 'UTC',
@@ -43,9 +44,11 @@ export function displayUrl(value: string): string {
 }
 
 export function countryName(code: string | null): string {
-  if (!code) return 'Tidak diketahui';
+  if (!code) return tr('Tidak diketahui', 'Unknown');
   try {
-    return new Intl.DisplayNames(['id'], { type: 'region' }).of(code) || code;
+    return (
+      new Intl.DisplayNames([intlLocale()], { type: 'region' }).of(code) || code
+    );
   } catch {
     return code;
   }

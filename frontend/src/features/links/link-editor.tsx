@@ -1,5 +1,6 @@
 'use client';
 
+import { useI18n } from '@/lib/use-i18n';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useAuth } from '@/components/auth-provider';
 import { Icon } from '@/components/icons';
@@ -18,6 +19,7 @@ export function LinkEditor({
   onSaved: (link: ShortLink) => void;
 }) {
   const { request } = useAuth();
+  const { t } = useI18n();
   const id = useId();
   const controller = useRef<AbortController | null>(null);
   const [targetUrl, setTargetUrl] = useState(link?.targetUrl ?? '');
@@ -34,7 +36,11 @@ export function LinkEditor({
     try {
       body = linkPayload({ targetUrl, alias, expiresAt }, link);
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Periksa isianmu.');
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : t('Periksa isianmu.', 'Check your input.'),
+      );
       return;
     }
     setBusy(true);
@@ -60,7 +66,9 @@ export function LinkEditor({
   return (
     <Modal
       open
-      title={link ? 'Ubah tautan' : 'Tautan baru'}
+      title={
+        link ? t('Ubah tautan', 'Edit link') : t('Tautan baru', 'New link')
+      }
       onClose={onClose}
       busy={busy}
     >
@@ -68,13 +76,16 @@ export function LinkEditor({
         {error && <ErrorBox error={error} />}
         <div>
           <label className="field-label" htmlFor={`${id}-target`}>
-            URL tujuan
+            {t('URL tujuan', 'Destination URL')}
           </label>
           <input
             id={`${id}-target`}
             className="input"
             type="url"
-            placeholder="https://contoh.com/cerita-panjangmu"
+            placeholder={t(
+              'https://contoh.com/cerita-panjangmu',
+              'https://example.com/your-long-story',
+            )}
             required
             maxLength={2048}
             value={targetUrl}
@@ -88,13 +99,15 @@ export function LinkEditor({
             {link ? (
               ''
             ) : (
-              <span className="font-normal text-muted">(opsional)</span>
+              <span className="font-normal text-muted">
+                ({t('opsional', 'optional')})
+              </span>
             )}
           </label>
           <input
             id={`${id}-alias`}
             className="input"
-            placeholder="misalnya: ide-besarku"
+            placeholder={t('misalnya: ide-besarku', 'e.g. big-idea')}
             value={alias}
             onChange={(event) => setAlias(event.target.value)}
             readOnly={Boolean(link)}
@@ -103,24 +116,29 @@ export function LinkEditor({
           />
           <p className="field-hint">
             {link
-              ? 'Alias tidak bisa diubah.'
-              : 'Kosongkan untuk kode otomatis.'}
+              ? t('Alias tidak bisa diubah.', 'Alias cannot be changed.')
+              : t(
+                  'Kosongkan untuk kode otomatis.',
+                  'Leave empty for an automatic code.',
+                )}
           </p>
         </div>
         <div>
           <div className="flex items-center justify-between">
             <label className="field-label" htmlFor={`${id}-expires`}>
-              Kedaluwarsa{' '}
-              <span className="font-normal text-muted">(opsional)</span>
+              {t('Kedaluwarsa', 'Expiry')}{' '}
+              <span className="font-normal text-muted">
+                ({t('opsional', 'optional')})
+              </span>
             </label>
             {expiresAt && (
               <button
-                className="mb-2 text-xs font-semibold text-accent"
+                className="mb-2 text-xs font-medium text-accent"
                 type="button"
                 onClick={() => setExpiresAt('')}
                 disabled={busy}
               >
-                Hapus
+                {t('Hapus', 'Clear')}
               </button>
             )}
           </div>
@@ -141,7 +159,7 @@ export function LinkEditor({
             disabled={busy}
             onClick={onClose}
           >
-            Batal
+            {t('Batal', 'Cancel')}
           </button>
           <button
             type="submit"
@@ -149,10 +167,12 @@ export function LinkEditor({
             disabled={busy}
           >
             {busy ? (
-              <Spinner label="Menyimpan…" />
+              <Spinner label={t('Menyimpan…', 'Saving…')} />
             ) : (
               <>
-                {link ? 'Simpan perubahan' : 'Buat tautan'}
+                {link
+                  ? t('Simpan perubahan', 'Save changes')
+                  : t('Buat tautan', 'Create link')}
                 <Icon name="arrow" width={16} />
               </>
             )}

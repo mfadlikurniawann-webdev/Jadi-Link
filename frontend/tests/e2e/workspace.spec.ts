@@ -246,3 +246,27 @@ test('fits a mobile screen and allows dismissing a keyboard-focused dialog', asy
     page.getByRole('button', { name: 'Buat tautan', exact: true }),
   ).toBeFocused();
 });
+
+test('switches between Indonesian and English and remembers the choice', async ({
+  page,
+}) => {
+  await mockApi(page, [{ ...fixtureLink }]);
+  await page.goto('/');
+  await expect(
+    page.getByRole('heading', { name: /Link jadi ringkas/ }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'English' }).first().click();
+  await expect(
+    page.getByRole('heading', { name: /Links made short/ }),
+  ).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await page.goto('/login');
+  await expect(
+    page.getByRole('heading', { name: 'Sign in and share.' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Bahasa Indonesia' }).first().click();
+  await expect(
+    page.getByRole('heading', { name: 'Masuk, lalu bagikan.' }),
+  ).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'id');
+});

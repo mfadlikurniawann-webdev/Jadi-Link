@@ -1,5 +1,6 @@
 'use client';
 
+import { useI18n } from '@/lib/use-i18n';
 import { useId, useState } from 'react';
 import { chartGeometry } from '@/lib/chart';
 import { dayLabel, number } from '@/lib/format';
@@ -10,20 +11,27 @@ export function ClickChart({
   data: { date: string; clicks: number }[];
 }) {
   const [selected, setSelected] = useState(29);
+  const { t } = useI18n();
   const gradient = useId().replace(/:/g, '');
   const chart = chartGeometry(data.map((item) => item.clicks));
   const index = Math.min(selected, data.length - 1);
   const active = data[index];
   const point = chart.points[index];
   const hasClicks = data.some((item) => item.clicks > 0);
+  const total = number(data.reduce((sum, item) => sum + item.clicks, 0));
   return (
     <section className="panel chart-panel">
       <div className="panel-toolbar">
-        <h2 className="font-semibold">Klik 30 hari</h2>
+        <h2 className="font-medium">{t('Klik 30 hari', 'Clicks, 30 days')}</h2>
         <div className="chart-selected" aria-live="polite">
-          <span>{active ? dayLabel(active.date, true) : 'Belum ada data'}</span>
+          <span>
+            {active
+              ? dayLabel(active.date, true)
+              : t('Belum ada data', 'No data yet')}
+          </span>
           <strong>
-            {active ? number(active.clicks) : '0'} <span>klik</span>
+            {active ? number(active.clicks) : '0'}{' '}
+            <span>{t('klik', 'clicks')}</span>
           </strong>
         </div>
       </div>
@@ -44,12 +52,15 @@ export function ClickChart({
           viewBox="0 0 760 220"
           className="click-chart"
           role="img"
-          aria-label={`Grafik klik harian 30 hari. Total ${number(data.reduce((sum, item) => sum + item.clicks, 0))} klik.`}
+          aria-label={t(
+            `Grafik klik harian 30 hari. Total ${total} klik.`,
+            `Daily clicks chart, 30 days. Total ${total} clicks.`,
+          )}
         >
           <defs>
             <linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#fc5810" stopOpacity=".38" />
-              <stop offset="100%" stopColor="#fc5810" stopOpacity="0" />
+              <stop offset="0%" stopColor="#ffd60a" stopOpacity=".22" />
+              <stop offset="100%" stopColor="#ffd60a" stopOpacity="0" />
             </linearGradient>
           </defs>
           {[20, 80, 140, 200].map((y) => (
@@ -63,18 +74,25 @@ export function ClickChart({
               strokeDasharray="4 6"
             />
           ))}
-          <path d={chart.area} fill={`url(#${gradient})`} />
           <path
+            className="chart-area"
+            d={chart.area}
+            fill={`url(#${gradient})`}
+          />
+          <path
+            className="chart-line"
+            pathLength={1}
             d={chart.line}
             fill="none"
-            stroke="#fc5810"
-            strokeWidth="2.5"
+            stroke="#ffd60a"
+            strokeWidth="2"
             strokeLinejoin="round"
             strokeLinecap="round"
           />
           {point && (
             <>
               <line
+                className="chart-cursor"
                 x1={point.x}
                 y1="20"
                 x2={point.x}
@@ -86,14 +104,19 @@ export function ClickChart({
                 cx={point.x}
                 cy={point.y}
                 r="5"
-                fill="#fc5810"
-                stroke="#050505"
+                className="chart-cursor"
+                fill="#ffd60a"
+                stroke="#0b0c0f"
                 strokeWidth="3"
               />
             </>
           )}
         </svg>
-        {!hasClicks && <div className="chart-empty">Belum ada klik.</div>}
+        {!hasClicks && (
+          <div className="chart-empty">
+            {t('Belum ada klik.', 'No clicks yet.')}
+          </div>
+        )}
       </div>
       <div className="chart-dates">
         {[0, 7, 14, 21, 29].map((item) => (
@@ -102,7 +125,7 @@ export function ClickChart({
       </div>
       <div className="chart-access">
         <label htmlFor={`${gradient}-slider`} className="sr-only">
-          Pilih tanggal grafik
+          {t('Pilih tanggal grafik', 'Pick a chart date')}
         </label>
         <input
           id={`${gradient}-slider`}
@@ -113,19 +136,21 @@ export function ClickChart({
           onChange={(event) => setSelected(Number(event.target.value))}
           aria-valuetext={
             active
-              ? `${dayLabel(active.date, true)}, ${active.clicks} klik`
-              : 'Belum ada data'
+              ? `${dayLabel(active.date, true)}, ${active.clicks} ${t('klik', 'clicks')}`
+              : t('Belum ada data', 'No data yet')
           }
         />
         <details>
-          <summary>Lihat data harian</summary>
+          <summary>{t('Lihat data harian', 'View daily data')}</summary>
           <div className="daily-table-wrap">
             <table>
-              <caption className="sr-only">Klik harian dalam UTC</caption>
+              <caption className="sr-only">
+                {t('Klik harian dalam UTC', 'Daily clicks in UTC')}
+              </caption>
               <thead>
                 <tr>
-                  <th>Tanggal (UTC)</th>
-                  <th>Klik</th>
+                  <th>{t('Tanggal (UTC)', 'Date (UTC)')}</th>
+                  <th>{t('Klik', 'Clicks')}</th>
                 </tr>
               </thead>
               <tbody>

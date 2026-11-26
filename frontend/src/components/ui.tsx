@@ -1,16 +1,18 @@
 'use client';
 
+import { useI18n } from '@/lib/use-i18n';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Icon } from './icons';
 import { errorMessage } from '@/lib/api';
 import type { ShortLink } from '@/lib/types';
 import { linkStatus } from '@/lib/format';
 
-export function Spinner({ label = 'Memuat…' }: { label?: string }) {
+export function Spinner({ label }: { label?: string }) {
+  const { t } = useI18n();
   return (
     <span className="inline-flex items-center gap-2" role="status">
       <span className="spinner" aria-hidden="true" />
-      <span>{label}</span>
+      <span>{label ?? t('Memuat…', 'Loading…')}</span>
     </span>
   );
 }
@@ -30,6 +32,7 @@ export function ErrorBox({
   error: unknown;
   onRetry?: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="error-box" role="alert">
       <Icon name="alert" />
@@ -37,10 +40,10 @@ export function ErrorBox({
         <p>{typeof error === 'string' ? error : errorMessage(error)}</p>
         {onRetry && (
           <button
-            className="mt-2 font-semibold underline underline-offset-4"
+            className="mt-2 font-medium underline underline-offset-4"
             onClick={onRetry}
           >
-            Coba lagi
+            {t('Coba lagi', 'Try again')}
           </button>
         )}
       </div>
@@ -49,28 +52,31 @@ export function ErrorBox({
 }
 
 export function StatusBadge({ link }: { link: ShortLink }) {
+  const { t } = useI18n();
   const status = linkStatus(link);
   return (
     <span className={`status-badge status-${status}`}>
       <span aria-hidden="true" />
       {status === 'active'
-        ? 'Aktif'
+        ? t('Aktif', 'Active')
         : status === 'expired'
-          ? 'Kedaluwarsa'
-          : 'Nonaktif'}
+          ? t('Kedaluwarsa', 'Expired')
+          : t('Nonaktif', 'Inactive')}
     </span>
   );
 }
 
 export function CopyButton({
   value,
-  label = 'Salin tautan',
+  label: customLabel,
   compact = false,
 }: {
   value: string;
   label?: string;
   compact?: boolean;
 }) {
+  const { t } = useI18n();
+  const label = customLabel ?? t('Salin tautan', 'Copy link');
   const [copied, setCopied] = useState(false);
   const [failed, setFailed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -97,18 +103,18 @@ export function CopyButton({
         className={compact ? 'icon-button' : 'button button-secondary'}
         type="button"
         onClick={() => void copy()}
-        aria-label={copied ? 'Tautan tersalin' : label}
+        aria-label={copied ? t('Tautan tersalin', 'Link copied') : label}
         title={label}
       >
         <Icon name={copied ? 'check' : 'copy'} />
-        {!compact && (copied ? 'Tersalin' : label)}
+        {!compact && (copied ? t('Tersalin', 'Copied') : label)}
       </button>
       <span className="sr-only" role="status">
-        {copied ? 'Tautan berhasil disalin.' : ''}
+        {copied ? t('Tautan berhasil disalin.', 'Link copied.') : ''}
       </span>
       {failed && (
         <span className="max-w-60 text-xs text-red-400" role="alert">
-          Gagal menyalin. Salin manual.
+          {t('Gagal menyalin. Salin manual.', 'Copy failed. Copy it manually.')}
         </span>
       )}
     </span>
@@ -130,6 +136,7 @@ export function Modal({
   onClose: () => void;
   busy?: boolean;
 }) {
+  const { t } = useI18n();
   const ref = useRef<HTMLDialogElement>(null);
   const id = useId();
   useEffect(() => {
@@ -168,7 +175,7 @@ export function Modal({
       <div className="p-6 sm:p-8">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 id={id} className="text-2xl font-bold tracking-tight">
+            <h2 id={id} className="text-2xl">
               {title}
             </h2>
             {description && (
@@ -183,7 +190,7 @@ export function Modal({
           <button
             type="button"
             className="icon-button"
-            aria-label="Tutup dialog"
+            aria-label={t('Tutup dialog', 'Close dialog')}
             disabled={busy}
             onClick={onClose}
           >
