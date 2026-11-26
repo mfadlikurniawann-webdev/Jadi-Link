@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Functional smoke test for deploy/nginx/jadi-link.conf on Linux (no root).
 # Runs a real nginx on high ports with throwaway certificates and an echo
-# upstream, then checks the origin's security behaviour.
+# upstream, then checks the public site's security behaviour.
 # Requires: nginx, openssl, curl, python3.
 # Usage: NGINX_BIN=/usr/sbin/nginx deploy/test/nginx-smoke.sh
 # (Not "NGINX": nginx itself reads that variable for inherited sockets.)
@@ -23,32 +23,29 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "$work"/{sites,snippets,ssl,logs,tmp}
+mkdir -p "$work"/{sites,ssl,logs,tmp,www/.well-known/acme-challenge}
 cd "$work/ssl"
 quiet() { "$@" >/dev/null 2>&1; }
 
-# Stand-in for Cloudflare's origin-pull CA plus a client cert it signed.
-quiet openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=test-origin-pull-ca" \
-  -keyout ca.key -out authenticated_origin_pull_ca.pem
-quiet openssl req -newkey rsa:2048 -nodes -subj "/CN=edge" -keyout client.key -out client.csr
-quiet openssl x509 -req -in client.csr -CA authenticated_origin_pull_ca.pem -CAkey ca.key \
-  -CAcreateserial -days 1 -out client.pem
-# A client certificate from an unrelated CA must be rejected.
-quiet openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=rogue" \
-  -keyout rogue.key -out rogue.pem
-# Stand-in for the Cloudflare Origin Certificate.
+# Stand-in for the Let's Encrypt certificate (fullchain.pem + privkey.pem).
 quiet openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=link.example.com" \
-  -addext "subjectAltName=DNS:link.example.com" -keyout origin.key -out origin.pem
+  -addext "subjectAltName=DNS:link.example.com" -keyout privkey.pem -out fullchain.pem
+# Stand-in for a token certbot writes to the webroot during HTTP-01 validation.
+echo "acme-token-content" >"$work/www/.well-known/acme-challenge/test-token"
 
 # Same site file, remapped to the sandbox: paths, high ports, IPv4 only.
-sed -e "s#/etc/nginx/snippets/#$work/snippets/#g" \
-  -e "s#/etc/ssl/cloudflare/#$work/ssl/#g" \
+sed -e "s#/etc/letsencrypt/live/link.example.com/#$work/ssl/#g" \
+  -e "s#/var/www/html#$work/www#g" \
   -e "s#/var/log/nginx/#$work/logs/#g" \
   -e '/listen \[::\]/d' \
   -e 's/listen 80/listen 18080/' \
   -e 's/listen 443/listen 18443/' \
   -e 's/127\.0\.0\.1:3001/127.0.0.1:13001/' \
   "$repo/deploy/nginx/jadi-link.conf" >"$work/sites/jadi-link.conf"
+if grep -qE '/etc/|/var/' "$work/sites/jadi-link.conf"; then
+  echo "Unmapped system path in the sandboxed site config." >&2
+  exit 1
+fi
 
 cat >"$work/nginx.conf" <<EOF
 pid $work/nginx.pid;
@@ -106,48 +103,37 @@ https_req() {
   curl -sk --max-time 5 --resolve link.example.com:18443:127.0.0.1 "$@"
 }
 
-echo "== real Cloudflare allowlist: loopback is not Cloudflare"
-cp "$repo/deploy/nginx/cloudflare-ips.conf" "$work/snippets/cloudflare-ips.conf"
 ng -t -q
 ng
 sleep 0.5
-check "non-Cloudflare peer gets 403" "403" \
-  "$(https_req -o /dev/null -w '%{http_code}' --cert "$work/ssl/client.pem" --key "$work/ssl/client.key" https://link.example.com:18443/abc)"
-ng -s stop
-sleep 0.5
 
-echo "== loopback allowed, simulating a Cloudflare edge"
-echo 'allow 127.0.0.1;' >"$work/snippets/cloudflare-ips.conf"
-ng
-sleep 0.5
-
-check "request without client certificate is rejected" "400" \
-  "$(https_req -o /dev/null -w '%{http_code}' https://link.example.com:18443/abc)"
-check "client certificate from another CA is rejected" "400" \
-  "$(https_req -o /dev/null -w '%{http_code}' --cert "$work/ssl/rogue.pem" --key "$work/ssl/rogue.key" https://link.example.com:18443/abc)"
-
-headers="$(https_req --cert "$work/ssl/client.pem" --key "$work/ssl/client.key" \
-  -H 'X-Forwarded-For: 6.6.6.6' -H 'CF-Connecting-IP: 198.51.100.7' -H 'CF-IPCountry: ID' \
-  https://link.example.com:18443/abc)"
-field() { python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get(sys.argv[2], ""))' "$headers" "$1"; }
-check "authenticated edge reaches the API" "link.example.com" "$(field host)"
+# No Cloudflare in front: forged CF headers from a client must not reach the API.
+headers="$(https_req -H 'X-Forwarded-For: 6.6.6.6' -H 'CF-Connecting-IP: 198.51.100.7' \
+  -H 'CF-IPCountry: ID' https://link.example.com:18443/abc)"
+field() { python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get(sys.argv[2], "<absent>"))' "$headers" "$1"; }
+check "HTTPS request reaches the API" "link.example.com" "$(field host)"
 check "spoofed X-Forwarded-For is overwritten" "127.0.0.1" "$(field x-forwarded-for)"
 check "X-Forwarded-Proto is https" "https" "$(field x-forwarded-proto)"
-check "CF-Connecting-IP is forwarded" "198.51.100.7" "$(field cf-connecting-ip)"
-check "CF-IPCountry is forwarded" "ID" "$(field cf-ipcountry)"
+check "client CF-Connecting-IP is stripped" "<absent>" "$(field cf-connecting-ip)"
+check "client CF-IPCountry is stripped" "<absent>" "$(field cf-ipcountry)"
 
 check "body over 64 KiB is rejected" "413" \
-  "$(head -c 70000 /dev/zero | https_req -o /dev/null -w '%{http_code}' --cert "$work/ssl/client.pem" --key "$work/ssl/client.key" --data-binary @- https://link.example.com:18443/api/links)"
+  "$(head -c 70000 /dev/zero | https_req -o /dev/null -w '%{http_code}' --data-binary @- https://link.example.com:18443/api/links)"
 
 https_req --resolve other.example.com:18443:127.0.0.1 -o /dev/null https://other.example.com:18443/ && sni=accepted || sni=rejected
 check "unknown TLS hostname is refused" "rejected" "$sni"
 
+http_req() { curl -s --max-time 5 -H 'Host: link.example.com' "$@"; }
 check "HTTP redirects to HTTPS" "301" \
-  "$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' -H 'Host: link.example.com' http://127.0.0.1:18080/abc)"
+  "$(http_req -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/abc)"
+check "ACME challenge is served over HTTP" "acme-token-content" \
+  "$(http_req http://127.0.0.1:18080/.well-known/acme-challenge/test-token)"
+check "missing ACME token is 404, not proxied" "404" \
+  "$(http_req -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/.well-known/acme-challenge/missing)"
 curl -s --max-time 5 -o /dev/null -H 'Host: other.example.com' http://127.0.0.1:18080/ && plain=answered || plain=dropped
 check "unknown HTTP host is dropped (444)" "dropped" "$plain"
 
-if grep -q '198.51.100.7' "$work"/logs/jadi-link.access.log; then
+if grep -qE '127\.0\.0\.1|198\.51\.100\.7' "$work"/logs/jadi-link.access.log; then
   check "visitor IP is not written to the access log" "absent" "present"
 else
   check "visitor IP is not written to the access log" "absent" "absent"

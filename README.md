@@ -14,7 +14,8 @@ Prisma; frontend Next.js App Router + Tailwind CSS.
 - [x] Fase 5 — analitik.
 - [x] Fase 6 — pengujian fitur inti dan alur lengkap, Swagger.
 - [x] Fase 7 — frontend Next.js.
-- [x] Fase 8 — konfigurasi dan panduan deployment PM2, Nginx, Cloudflare, Vercel.
+- [x] Fase 8 — konfigurasi dan panduan deployment PM2, Nginx + Let's Encrypt, Vercel
+  (tanpa Cloudflare).
 
 Repo: [mfadlikurniawann-webdev/Jadi-Link](https://github.com/mfadlikurniawann-webdev/Jadi-Link).
 Perubahan setiap fase yang selesai dan lolos verifikasi di-commit dan di-push ke
@@ -320,9 +321,9 @@ Jika contoh CRUD sebelumnya sudah menghapus `$link`, buat link baru dahulu.
 - Cache, throttle, dan buffer berada di **satu proses**. Jalankan satu instance
   PM2; perubahan langsung melalui SQL baru terlihat setelah TTL, bukan
   invalidasi API. Jangan menggunakan PM2 cluster/multi-worker untuk desain ini.
-- Redirect dan respons error memakai `Cache-Control: no-store`. Jangan aktifkan
-  Cloudflare Cache Everything/Edge TTL yang memaksa cache untuk domain short
-  link; bypass cache agar klik dan perubahan link tetap sampai ke backend.
+- Redirect dan respons error memakai `Cache-Control: no-store`, dan Nginx tidak
+  meng-cache (`proxy_cache off`). Jika kelak memakai CDN, jangan paksa cache
+  untuk domain short link agar klik dan perubahan link tetap sampai ke backend.
 - RedirectModule didaftarkan terakhir. Exclusion global prefix mencocokkan
   template literal `/:code` (colon di-escape), bukan semua route satu segmen,
   agar `/api/health` dan `/api/links` tidak kehilangan prefix.
@@ -347,18 +348,20 @@ Jika contoh CRUD sebelumnya sudah menghapus `$link`, buat link baru dahulu.
   Jumlah analitik di database bersifat eventual-consistent, biasanya terlambat
   sekitar satu interval flush ditambah waktu query. API analitik dijelaskan berikut.
 
-### Cloudflare dan privasi
+### Identitas pengunjung dan privasi
 
-- Ambil IP dari `CF-Connecting-IP` **hanya jika socket peer ada di `TRUST_PROXY`**.
-  Negara memakai `CF-IPCountry` dari jalur proxy yang sama, dengan CF IP valid;
-  `XX`, `T1`, atau metadata tidak valid menjadi null. Tanpa Cloudflare, IP
-  fallback mengikuti trust proxy Fastify, atau socket peer langsung.
+- Deployment production **tidak memakai Cloudflare**. Nginx menimpa
+  `X-Forwarded-For` dengan IP peer TCP (`$remote_addr`) dan backend hanya
+  memercayai header itu dari socket peer dalam `TRUST_PROXY` (default hanya
+  Nginx loopback). Klien langsung ke Node memakai socket peer.
+- Backend masih mendukung `CF-Connecting-IP`/`CF-IPCountry` dari peer yang
+  dipercaya, tetapi Nginx produksi **mengosongkan kedua header itu**, sehingga
+  nilai palsu dari klien tidak pernah sampai ke API. Akibatnya kolom negara
+  pada analitik selalu null (ditampilkan sebagai tidak diketahui); tidak ada
+  GeoIP bawaan.
 - Identitas yang sama digunakan untuk throttle, sehingga pengunjung berbeda
-  di belakang satu proxy tidak berbagi kuota login. Header CF palsu dari peer
-  yang tidak dipercaya diabaikan. `TRUST_PROXY` default hanya Nginx loopback.
-- **Proxy yang dipercaya bukan autentikasi Cloudflare.** Di production, batasi
-  akses Nginx origin ke jaringan Cloudflare dan pastikan Nginx meneruskan header
-  dengan benar; port Node tetap loopback. Lihat [Deployment (fase 8)](#deployment-fase-8).
+  di belakang satu proxy tidak berbagi kuota login. Port Node tetap loopback.
+  Lihat [Deployment (fase 8)](#deployment-fase-8).
 - `visitorHash` adalah **HMAC-SHA256** dari link ID, IP canonical, dan User-Agent
   yang dibatasi 512 karakter, dengan secret `VISITOR_HASH_SECRET`. Hanya hasil
   hash yang masuk buffer/database; IP mentah dan User-Agent tidak disimpan.
@@ -507,7 +510,7 @@ NEXT_PUBLIC_API_URL=http://localhost:3001/api
 Nilainya wajib berakhiran `/api`; jangan memasukkan `DATABASE_URL`, password
 database, `JWT_SECRET`, atau `VISITOR_HASH_SECRET` ke frontend. Browser
 memanggil API Nest langsung, tanpa BFF/proxy Next, sehingga identitas pengunjung
-di jalur Cloudflare tetap ditangani backend.
+tetap ditangani backend di belakang Nginx.
 
 ### Fitur dan batas sesi
 
@@ -580,31 +583,37 @@ frontend/
 
 Konfigurasi siap pakai ada di `deploy/`. Domain asli belum ditentukan, jadi
 contoh memakai placeholder; ganti di semua tempat sebelum dipakai.
+Deployment ini **tidak memakai Cloudflare**: Nginx di VPS langsung menerima
+trafik publik dan TLS-nya dari Let's Encrypt (certbot).
 
 | Komponen | Tempat | Contoh host |
 | --- | --- | --- |
 | Frontend Next.js | Vercel | `app.example.com` |
 | API (`/api/*`) + short link (`/:code`) | VPS: Nginx → PM2 → Node 24 | `link.example.com` |
-| Proxy/TLS publik | Cloudflare (proxied) | `link.example.com` |
+| TLS publik | Let's Encrypt (certbot, perpanjangan otomatis) | `link.example.com` |
 | Database | Neon, branch **production** terpisah | — |
 
 ```text
 deploy/
   pm2/ecosystem.config.cjs          # satu proses fork, shutdown menunggu buffer klik
-  nginx/jadi-link.conf              # origin khusus Cloudflare + Authenticated Origin Pulls
-  nginx/cloudflare-ips.conf         # snapshot allowlist IP Cloudflare
+  nginx/jadi-link.conf              # HTTPS publik, ACME webroot, header CF dibuang
   scripts/deploy-backend.sh         # pull → build → migrate → prune → reload → health
-  scripts/update-cloudflare-ips.sh  # perbarui allowlist, nginx -t, reload
   env/backend.production.env.example
   test/                             # tes kontrak (node --test) + smoke test nginx
 ```
 
-### 1. VPS (Ubuntu 24.04 LTS)
+### 1. DNS
+
+Di penyedia DNS domain (registrar atau layanan DNS apa pun), buat record `A`
+(dan `AAAA` bila VPS punya IPv6) untuk `link` → IP publik VPS. Tunggu sampai
+`nslookup link.example.com` mengembalikan IP VPS sebelum meminta sertifikat.
+
+### 2. VPS (Ubuntu 24.04 LTS)
 
 Sebagai user biasa ber-`sudo`, bukan root:
 
 ```sh
-sudo apt update && sudo apt install -y nginx git curl
+sudo apt update && sudo apt install -y nginx certbot git curl
 # Node 24 LTS (mis. lewat nvm atau paket NodeSource), lalu:
 npm install -g pm2
 sudo install -d -o "$USER" /srv/jadi-link
@@ -629,37 +638,40 @@ klik ada di memori satu proses. Restart menyebabkan jeda beberapa detik;
 saat `SIGINT`, Fastify menyelesaikan request lalu buffer klik dikuras sebelum
 Prisma disconnect (`kill_timeout` 20 detik).
 
-### 2. Cloudflare
+### 3. Firewall
 
-1. DNS: record `A`/`AAAA` untuk `link` → IP VPS, status **Proxied**.
-2. SSL/TLS → mode **Full (strict)**, aktifkan **Always Use HTTPS**,
-   minimum TLS 1.2.
-3. SSL/TLS → Origin Server → **Create Certificate** untuk `link.example.com`.
-   Simpan di VPS sebagai `/etc/ssl/cloudflare/origin.pem` dan
-   `/etc/ssl/cloudflare/origin.key` (`chmod 600`, milik root).
-4. **Authenticated Origin Pulls**: unduh CA lalu aktifkan di Cloudflare
-   **sebelum** memasang konfigurasi Nginx (Nginx menolak koneksi tanpa sertifikat
-   klien dengan 400):
+```sh
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx Full'   # 80 (ACME + redirect) dan 443
+sudo ufw enable
+```
 
-   ```sh
-   sudo curl -fsS https://developers.cloudflare.com/ssl/static/authenticated_origin_pull_ca.pem \
-     -o /etc/ssl/cloudflare/authenticated_origin_pull_ca.pem
-   ```
+Port 3001 tidak dibuka: Node hanya mendengarkan `127.0.0.1`.
 
-5. Caching → Cache Rules: hostname sama dengan `link.example.com` →
-   **Bypass cache**. Jangan pakai Cache Everything/Edge TTL untuk host ini;
-   klik dan perubahan link harus selalu sampai ke backend.
+### 4. Sertifikat Let's Encrypt
 
-Allowlist IP saja **bukan** autentikasi, karena rentang IP Cloudflare dipakai
-semua pelanggan Cloudflare. Origin baru dipercaya setelah lolos allowlist
-**dan** sertifikat klien Authenticated Origin Pulls. Hanya dengan itu header
-`CF-Connecting-IP`/`CF-IPCountry` aman dipakai backend.
+Minta sertifikat **sebelum** memasang konfigurasi Jadi Link, selagi site
+`default` bawaan paket nginx masih aktif dan melayani `/var/www/html` di port 80:
 
-### 3. Nginx
+```sh
+sudo certbot certonly --webroot -w /var/www/html -d link.example.com \
+  --deploy-hook "systemctl reload nginx"
+```
+
+Certbot menyimpan sertifikat di `/etc/letsencrypt/live/link.example.com/`,
+dan paket `certbot` memasang `certbot.timer` yang memperpanjang otomatis dengan
+webroot yang sama. `--deploy-hook` tersimpan di konfigurasi perpanjangan
+sehingga Nginx memuat sertifikat baru tanpa restart. Uji sekali:
+
+```sh
+sudo certbot renew --dry-run
+systemctl list-timers certbot.timer
+```
+
+### 5. Nginx
 
 ```sh
 cd /srv/jadi-link
-sudo deploy/scripts/update-cloudflare-ips.sh        # tulis /etc/nginx/snippets/cloudflare-ips.conf
 sudo cp deploy/nginx/jadi-link.conf /etc/nginx/sites-available/jadi-link.conf
 sudo sed -i 's/link\.example\.com/HOST-ASLI/g' /etc/nginx/sites-available/jadi-link.conf
 sudo ln -s /etc/nginx/sites-available/jadi-link.conf /etc/nginx/sites-enabled/
@@ -669,51 +681,47 @@ sudo nginx -t && sudo systemctl reload nginx
 
 Yang dikerjakan konfigurasi ini:
 
-- Hanya IP Cloudflare + sertifikat klien Cloudflare yang dilayani, lainnya `deny`.
+- HTTP hanya melayani `/.well-known/acme-challenge/` (dari `/var/www/html`,
+  untuk perpanjangan sertifikat); request lain diarahkan 301 ke HTTPS.
+- HTTPS TLS 1.2/1.3 dengan sertifikat Let's Encrypt; HSTS dikirim backend
+  (Helmet).
 - Host tak dikenal ditolak: HTTP `444`, HTTPS menolak handshake.
-- `X-Forwarded-For` ditimpa, bukan ditambah, sehingga tidak bisa disisipi klien.
+- `X-Forwarded-For` ditimpa dengan IP peer, bukan ditambah, sehingga tidak bisa
+  disisipi klien. `CF-Connecting-IP` dan `CF-IPCountry` dari klien dibuang.
 - Body maksimal 64 KiB dan timeout disamakan dengan Fastify.
 - Format log tidak mencatat IP pengunjung maupun query string.
 
-Perbarui allowlist berkala, misalnya lewat `sudo crontab -e`:
-
-```cron
-0 4 * * 1 /srv/jadi-link/deploy/scripts/update-cloudflare-ips.sh
-```
-
-Script menolak daftar yang mencurigakan (kurang dari 10 rentang), menjalankan
-`nginx -t`, dan mengembalikan file lama bila validasi gagal.
-
-Firewall: buka SSH, lalu 80/443 hanya untuk rentang Cloudflare:
+Periksa dari luar VPS:
 
 ```sh
-sudo ufw allow OpenSSH
-for ip in $(curl -fsS https://www.cloudflare.com/ips-v4) $(curl -fsS https://www.cloudflare.com/ips-v6); do
-  sudo ufw allow proto tcp from "$ip" to any port 80,443
-done
-sudo ufw enable
+curl -i https://link.example.com/api/health          # 200
+curl -I http://link.example.com/api/health           # 301 ke https
+curl -k -I https://IP-VPS                             # gagal handshake (host tak dikenal)
 ```
 
-Periksa: `curl -i https://link.example.com/api/health` → 200; akses langsung
-`https://IP-VPS` harus gagal; port 3001 tidak boleh terbuka dari luar.
+Tanpa CDN, perlindungan DDoS/bot di depan origin tidak ada. Batas laju per IP
+tetap ditegakkan backend (redirect 600/menit, auth 3–5/menit, API 120/menit).
 
-### 4. Vercel (frontend)
+### 6. Vercel (frontend)
 
 1. Import repo, **Root Directory** `frontend`, framework Next.js,
    Node.js **24.x**.
 2. Environment Variable (Production):
    `NEXT_PUBLIC_API_URL=https://link.example.com/api`. Nilai ditanam saat
    build; redeploy setelah mengubahnya.
-3. Domain `app.example.com`. Bila DNS di Cloudflare, buat `CNAME` ke target
-   yang diberikan Vercel dengan status **DNS only** (awan abu-abu).
+3. Domain `app.example.com`: di penyedia DNS, buat `CNAME` (atau record yang
+   diminta Vercel) ke target yang diberikan Vercel. Vercel menerbitkan
+   sertifikatnya sendiri.
 4. Samakan `FRONTEND_ORIGIN` backend dengan origin production ini persis.
    CORS hanya mengizinkan satu origin, sehingga **preview deployment**
    (`*.vercel.app`) memang tidak bisa memanggil API production.
 
-### 5. Rilis berikutnya
+### 7. Rilis berikutnya
 
 - Backend: `ssh` ke VPS lalu `/srv/jadi-link/deploy/scripts/deploy-backend.sh`.
 - Frontend: Vercel membangun ulang otomatis setiap push ke `main`.
+- Konfigurasi Nginx tidak ikut ter-update otomatis; bila `deploy/nginx/` berubah,
+  ulangi langkah 5 (salin, ganti host, `nginx -t`, reload).
 - Migrasi dijalankan sebelum reload, jadi tulis migrasi yang kompatibel dengan
   versi kode sebelumnya. Rollback kode (deploy commit lama) tidak membatalkan
   migrasi secara otomatis.
@@ -733,14 +741,17 @@ NGINX_BIN=/usr/sbin/nginx deploy/test/nginx-smoke.sh
 ```
 
 Smoke test menjalankan nginx sungguhan di port 18080/18443 dengan sertifikat
-sementara dan upstream echo. Yang diperiksa:
+sementara (pengganti Let's Encrypt) dan upstream echo. Yang diperiksa:
 
-- IP non-Cloudflare → 403.
-- Tanpa sertifikat klien, atau sertifikat dari CA lain → 400.
-- `X-Forwarded-For` palsu ditimpa; header CF diteruskan.
+- `X-Forwarded-For` palsu ditimpa; `CF-Connecting-IP`/`CF-IPCountry` palsu
+  tidak sampai ke upstream.
 - Body lebih dari 64 KiB → 413.
 - Host tak dikenal ditolak; HTTP diarahkan ke HTTPS.
+- Token ACME dilayani lewat HTTP; token yang tidak ada → 404, tidak diteruskan
+  ke API.
 - IP pengunjung tidak masuk access log.
+
+Keduanya juga dijalankan job CI `deploy-config` bersama shellcheck.
 
 ## Kualitas dan build
 
@@ -884,6 +895,13 @@ Deployment ke server sungguhan belum
 dilakukan karena domain dan VPS belum ditentukan. Tidak ada perubahan kode
 aplikasi, schema, atau migrasi.
 
+Revisi fase 8 (tanpa Cloudflare): allowlist IP Cloudflare, Authenticated Origin
+Pulls, dan Origin Certificate dihapus; TLS kini dari Let's Encrypt (webroot) dan
+Nginx membuang header `CF-*` dari klien. **10 tes kontrak deployment** lulus,
+backend **212 unit + 118 HTTP**, format/lint/build backend lulus, dan script
+lolos `bash -n`. Smoke test nginx dan shellcheck versi baru dijalankan oleh job
+CI `deploy-config` (nginx 1.24 Ubuntu 24.04). Kode backend tidak berubah.
+
 ## Struktur backend
 
 ```text
@@ -926,10 +944,11 @@ backend/
   Serialization user memakai DTO explicit-allowlist, bukan Prisma model mentah.
 - Backend bind ke `127.0.0.1` secara default. `TRUST_PROXY` hanya loopback untuk
   Nginx lokal, bukan semua proxy. Pada production port backend tidak boleh
-  terbuka ke internet; header Cloudflare perlu diteruskan oleh Nginx dan origin
-  dibatasi ke Cloudflare (panduan fase 8).
+  terbuka ke internet; Nginx menjadi satu-satunya pintu publik (panduan fase 8,
+  tanpa Cloudflare).
 - Throttle dan hash pengunjung memakai identitas proxy yang sama; header
-  Cloudflare hanya dipercaya dari socket peer dalam allowlist `TRUST_PROXY`.
+  `X-Forwarded-For`/`CF-*` hanya dipercaya dari socket peer dalam allowlist
+  `TRUST_PROXY`, dan Nginx produksi membuang header `CF-*` dari klien.
 - Override dependency transitive `effect`, `glob`, dan `minimatch` di
   `package.json` memakai versi yang sudah ditambal dan lolos audit keamanan. Override ini
   perlu ditinjau ulang saat dependency induknya diperbarui.

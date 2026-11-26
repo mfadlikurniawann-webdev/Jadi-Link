@@ -2,7 +2,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { isIP } from 'node:net';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -34,27 +33,36 @@ const siteServers = servers.filter((block) =>
   /server_name link\.example\.com;/.test(block),
 );
 
-test('nginx site servers only admit Cloudflare and deny everything else', () => {
+const tlsServer = siteServers.find((block) => block.includes('listen 443'));
+const httpServer = siteServers.find((block) => block.includes('listen 80;'));
+
+test('nginx serves the site directly, without Cloudflare-only gates', () => {
   assert.equal(siteServers.length, 2);
-  for (const block of siteServers) {
-    const include = block.indexOf(
-      'include /etc/nginx/snippets/cloudflare-ips.conf;',
-    );
-    const deny = block.indexOf('deny all;');
-    assert.ok(include > 0, 'allowlist include missing');
-    assert.ok(deny > include, 'deny all must follow the allowlist');
-  }
+  assert.doesNotMatch(nginx, /\/etc\/(nginx\/snippets|ssl)\/cloudflare/);
+  assert.doesNotMatch(nginx, /ssl_verify_client|deny all;/);
 });
 
-test('nginx requires Cloudflare Authenticated Origin Pulls over TLS', () => {
-  const tls = siteServers.find((block) => block.includes('listen 443'));
-  assert.ok(tls);
-  assert.match(tls, /ssl_verify_client on;/);
+test("nginx uses Let's Encrypt certificates over modern TLS", () => {
+  assert.ok(tlsServer);
   assert.match(
-    tls,
-    /ssl_client_certificate \/etc\/ssl\/cloudflare\/authenticated_origin_pull_ca\.pem;/,
+    tlsServer,
+    /ssl_certificate +\/etc\/letsencrypt\/live\/link\.example\.com\/fullchain\.pem;/,
   );
-  assert.match(tls, /ssl_protocols TLSv1\.2 TLSv1\.3;/);
+  assert.match(
+    tlsServer,
+    /ssl_certificate_key \/etc\/letsencrypt\/live\/link\.example\.com\/privkey\.pem;/,
+  );
+  assert.match(tlsServer, /ssl_protocols TLSv1\.2 TLSv1\.3;/);
+});
+
+test('HTTP serves ACME challenges and redirects everything else', () => {
+  assert.ok(httpServer);
+  const acme = httpServer.indexOf('location ^~ /.well-known/acme-challenge/ {');
+  assert.ok(acme > 0, 'ACME challenge location missing');
+  assert.match(httpServer, /root \/var\/www\/html;/);
+  assert.match(httpServer, /try_files \$uri =404;/);
+  assert.match(httpServer, /return 301 https:\/\/\$host\$request_uri;/);
+  assert.doesNotMatch(httpServer, /proxy_pass/);
 });
 
 test('unknown hosts are refused by default servers', () => {
@@ -71,10 +79,10 @@ test('nginx proxies to loopback with safe forwarding headers', () => {
   assert.match(nginx, /proxy_set_header X-Forwarded-For \$remote_addr;/);
   assert.doesNotMatch(nginx, /proxy_add_x_forwarded_for/);
   assert.match(nginx, /client_max_body_size 64k;/);
-  assert.match(
-    nginx,
-    /proxy_set_header CF-Connecting-IP \$http_cf_connecting_ip;/,
-  );
+  // Without Cloudflare, client-sent CF headers must never reach the API.
+  assert.match(nginx, /proxy_set_header CF-Connecting-IP "";/);
+  assert.match(nginx, /proxy_set_header CF-IPCountry "";/);
+  assert.doesNotMatch(nginx, /\$http_cf_/);
 });
 
 test('access log format does not record visitor IPs', () => {
@@ -89,25 +97,6 @@ test('access log format does not record visitor IPs', () => {
   ]) {
     assert.ok(!format[1].includes(variable), `${variable} must not be logged`);
   }
-});
-
-test('Cloudflare allowlist contains only valid CIDR allow rules', () => {
-  const lines = read('nginx/cloudflare-ips.conf')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith('#'));
-  assert.ok(lines.length >= 10);
-  for (const line of lines) {
-    const match = line.match(/^allow ([0-9a-fA-F:.]+)\/(\d{1,3});$/);
-    assert.ok(match, `unexpected line: ${line}`);
-    const family = isIP(match[1]);
-    assert.ok(family === 4 || family === 6, `invalid IP: ${line}`);
-    assert.ok(Number(match[2]) <= (family === 4 ? 32 : 128));
-  }
-  assert.ok(
-    lines.some((line) => line.includes(':')),
-    'IPv6 ranges missing',
-  );
 });
 
 test('production env template is safe and has no real secrets', () => {
@@ -136,11 +125,7 @@ test('production env template is safe and has no real secrets', () => {
 });
 
 test('shell scripts fail fast', () => {
-  for (const script of [
-    'scripts/deploy-backend.sh',
-    'scripts/update-cloudflare-ips.sh',
-    'test/nginx-smoke.sh',
-  ]) {
+  for (const script of ['scripts/deploy-backend.sh', 'test/nginx-smoke.sh']) {
     const source = read(script);
     assert.ok(source.startsWith('#!/usr/bin/env bash\n'), script);
     assert.match(source, /^set -euo pipefail$/m, script);
