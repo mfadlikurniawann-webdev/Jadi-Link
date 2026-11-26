@@ -33,9 +33,10 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
+      # Generate the Prisma client first: lint and tests need its types.
+      - run: npm run prisma:generate
       - run: npm run format:check
       - run: npm run lint
-      - run: npm run prisma:generate
       - run: npm test
       - run: npm run test:e2e
       - run: npm run build
