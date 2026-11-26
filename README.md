@@ -1,5 +1,7 @@
 # Jadi Link
 
+[![CI](https://github.com/mfadlikurniawann-webdev/Jadi-Link/actions/workflows/ci.yml/badge.svg)](https://github.com/mfadlikurniawann-webdev/Jadi-Link/actions/workflows/ci.yml)
+
 URL shortener dengan analitik klik. Backend NestJS + Fastify, PostgreSQL Neon,
 Prisma; frontend Next.js App Router + Tailwind CSS.
 
@@ -18,6 +20,23 @@ Repo: [mfadlikurniawann-webdev/Jadi-Link](https://github.com/mfadlikurniawann-we
 Perubahan setiap fase yang selesai dan lolos verifikasi di-commit dan di-push ke
 `origin/main`, tanpa force-push. Workflow tersimpan di `AGENTS.md`.
 Secret, `.env`, dependency lokal, dan hasil build tidak dilacak Git.
+
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`) berjalan pada setiap push ke `main`,
+pull request, dan secara manual. Empat job paralel di Ubuntu 24.04 dengan Node
+dari `.nvmrc`:
+
+| Job | Isi |
+| --- | --- |
+| Backend | format, lint, unit, HTTP/e2e (mock DB), build |
+| Backend integration | PostgreSQL 17 sementara (service container), alur e2e database asli |
+| Frontend | format, lint, typecheck, unit, Playwright Chromium (mock API), build |
+| Deployment config | tes kontrak `deploy/`, shellcheck, smoke test nginx 1.24 |
+
+CI tidak memakai secret dan tidak pernah terhubung ke Neon; izin token
+dibatasi `contents: read`. Run lama pada branch yang sama dibatalkan saat ada
+push baru.
 
 ## Prasyarat
 

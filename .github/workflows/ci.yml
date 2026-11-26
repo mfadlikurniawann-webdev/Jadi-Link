@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (lint, unit, HTTP, build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # Placeholder so "prisma generate" can load prisma.config.ts.
+      # Tests set their own env (test/setup-env.ts); nothing connects to it.
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:1/not_a_real_database
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run prisma:generate
+      - run: npm test
+      - run: npm run test:e2e
+      - run: npm run build
+
+  backend-integration:
+    name: Backend integration (PostgreSQL)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:1/not_a_real_database
+      # Throwaway loopback server; the runner creates and drops its own database.
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run prisma:generate
+      - run: npm run test:integration
+
+  frontend:
+    name: Frontend (lint, typecheck, unit, browser, build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      # Uses the local mock API on 127.0.0.1:3101; no backend or Neon needed.
+      - run: npm run test:e2e
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3001/api
+
+  deploy-config:
+    name: Deployment config (contracts, shellcheck, nginx)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - run: node --test "deploy/test/*.test.mjs"
+      - run: shellcheck deploy/scripts/*.sh deploy/test/*.sh
+      # Same nginx 1.24 package as the Ubuntu 24.04 VPS target.
+      - run: sudo apt-get update && sudo apt-get install -y nginx
+      - run: NGINX_BIN=/usr/sbin/nginx deploy/test/nginx-smoke.sh
