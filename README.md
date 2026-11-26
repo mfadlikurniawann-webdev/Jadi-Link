@@ -12,7 +12,7 @@ Prisma; frontend Next.js App Router + Tailwind CSS.
 - [x] Fase 5 — analitik.
 - [x] Fase 6 — pengujian fitur inti dan alur lengkap, Swagger.
 - [x] Fase 7 — frontend Next.js.
-- [ ] Fase 8 — deployment PM2, Nginx, Cloudflare, Vercel.
+- [x] Fase 8 — konfigurasi dan panduan deployment PM2, Nginx, Cloudflare, Vercel.
 
 Repo: [mfadlikurniawann-webdev/Jadi-Link](https://github.com/mfadlikurniawann-webdev/Jadi-Link).
 Perubahan setiap fase yang selesai dan lolos verifikasi di-commit dan di-push ke
@@ -339,7 +339,7 @@ Jika contoh CRUD sebelumnya sudah menghapus `$link`, buat link baru dahulu.
   yang tidak dipercaya diabaikan. `TRUST_PROXY` default hanya Nginx loopback.
 - **Proxy yang dipercaya bukan autentikasi Cloudflare.** Di production, batasi
   akses Nginx origin ke jaringan Cloudflare dan pastikan Nginx meneruskan header
-  dengan benar; port Node tetap loopback. Konfigurasinya disediakan fase 8.
+  dengan benar; port Node tetap loopback. Lihat [Deployment (fase 8)](#deployment-fase-8).
 - `visitorHash` adalah **HMAC-SHA256** dari link ID, IP canonical, dan User-Agent
   yang dibatasi 512 karakter, dengan secret `VISITOR_HASH_SECRET`. Hanya hasil
   hash yang masuk buffer/database; IP mentah dan User-Agent tidak disimpan.
@@ -501,7 +501,7 @@ di jalur Cloudflare tetap ditangani backend.
 - Detail menampilkan total klik, klik/visitor unik 30 hari, grafik SVG,
   tabel harian yang dapat diakses lewat keyboard, serta referrer/negara/device.
   Periode tetap 30 tanggal UTC; klik tersimpan biasanya terlambat sekitar 5 detik.
-  Setelah mengunjungi short URL, tunggu lalu klik **Perbarui statistik**.
+  Setelah mengunjungi short URL, tunggu lalu klik **Perbarui**.
 - Sesi sesuai pilihan pengguna: **hanya di memori React**, bukan cookies,
   localStorage, sessionStorage, URL, atau log. Refresh/full-page navigation,
   tab baru, logout, token kedaluwarsa, atau respons privat 401 meminta login ulang.
@@ -509,6 +509,9 @@ di jalur Cloudflare tetap ditangani backend.
 - Guard frontend hanya mengatur navigasi/tampilan. Backend tetap memverifikasi
   JWT dan ownership setiap request privat. Logout tidak mencabut JWT yang
   sudah diterbitkan; token berlaku sampai expiry backend.
+- Antarmuka **Bahasa Indonesia/English** (tombol `ID | EN`). Hanya preferensi
+  bahasa yang disimpan di `localStorage`; pesan validasi/error, angka, dan
+  tanggal ikut berganti. Default Bahasa Indonesia.
 - Respons gagal, loading, daftar kosong, 404, dan batas permintaan ditangani
   di UI. CORS mengekspos `Retry-After` agar browser dapat membaca waktu retry.
 
@@ -539,7 +542,7 @@ mengintersep API `127.0.0.1:3101` dengan mock; tidak membutuhkan backend/Neon.
 Pastikan port 3100 kosong. Konfigurasi production **wajib** menyebut API secara
 eksplisit; host remote harus HTTPS. `NEXT_PUBLIC_API_URL` ditanam pada saat
 build: mengubah nilai setelah build tidak mengganti URL di bundle browser.
-Build ulang bila domain API berubah. Deployment belum dikerjakan pada fase ini.
+Build ulang bila domain API berubah. Panduan Vercel ada di bagian deployment.
 
 Struktur frontend:
 
@@ -553,6 +556,172 @@ frontend/
   tests/unit/          # Vitest: API, validasi, grafik/format
   tests/e2e/           # Playwright: mock API dan alur browser
 ```
+
+## Deployment (fase 8)
+
+Konfigurasi siap pakai ada di `deploy/`. Domain asli belum ditentukan, jadi
+contoh memakai placeholder; ganti di semua tempat sebelum dipakai.
+
+| Komponen | Tempat | Contoh host |
+| --- | --- | --- |
+| Frontend Next.js | Vercel | `app.example.com` |
+| API (`/api/*`) + short link (`/:code`) | VPS: Nginx → PM2 → Node 24 | `link.example.com` |
+| Proxy/TLS publik | Cloudflare (proxied) | `link.example.com` |
+| Database | Neon, branch **production** terpisah | — |
+
+```text
+deploy/
+  pm2/ecosystem.config.cjs          # satu proses fork, shutdown menunggu buffer klik
+  nginx/jadi-link.conf              # origin khusus Cloudflare + Authenticated Origin Pulls
+  nginx/cloudflare-ips.conf         # snapshot allowlist IP Cloudflare
+  scripts/deploy-backend.sh         # pull → build → migrate → prune → reload → health
+  scripts/update-cloudflare-ips.sh  # perbarui allowlist, nginx -t, reload
+  env/backend.production.env.example
+  test/                             # tes kontrak (node --test) + smoke test nginx
+```
+
+### 1. VPS (Ubuntu 24.04 LTS)
+
+Sebagai user biasa ber-`sudo`, bukan root:
+
+```sh
+sudo apt update && sudo apt install -y nginx git curl
+# Node 24 LTS (mis. lewat nvm atau paket NodeSource), lalu:
+npm install -g pm2
+sudo install -d -o "$USER" /srv/jadi-link
+git clone https://github.com/mfadlikurniawann-webdev/Jadi-Link.git /srv/jadi-link
+cd /srv/jadi-link
+cp deploy/env/backend.production.env.example backend/.env
+chmod 600 backend/.env   # isi DATABASE_URL/DIRECT_URL production, domain, dua secret
+deploy/scripts/deploy-backend.sh
+pm2 startup systemd      # jalankan perintah sudo yang dicetak, lalu:
+pm2 save
+pm2 install pm2-logrotate
+```
+
+`deploy-backend.sh` menolak berjalan bila Node bukan 24, `.env` tidak ada atau
+bukan `NODE_ENV=production`, atau ada file terlacak yang diubah di server.
+Urutannya: fast-forward `main`, `npm ci`, build (termasuk `prisma generate`),
+`prisma migrate deploy`, `npm prune --omit=dev`, reload PM2, lalu menunggu
+`/api/health` sampai 20 detik.
+
+PM2 sengaja **satu instance mode fork**: cache redirect, throttle, dan buffer
+klik ada di memori satu proses. Restart menyebabkan jeda beberapa detik;
+saat `SIGINT`, Fastify menyelesaikan request lalu buffer klik dikuras sebelum
+Prisma disconnect (`kill_timeout` 20 detik).
+
+### 2. Cloudflare
+
+1. DNS: record `A`/`AAAA` untuk `link` → IP VPS, status **Proxied**.
+2. SSL/TLS → mode **Full (strict)**, aktifkan **Always Use HTTPS**,
+   minimum TLS 1.2.
+3. SSL/TLS → Origin Server → **Create Certificate** untuk `link.example.com`.
+   Simpan di VPS sebagai `/etc/ssl/cloudflare/origin.pem` dan
+   `/etc/ssl/cloudflare/origin.key` (`chmod 600`, milik root).
+4. **Authenticated Origin Pulls**: unduh CA lalu aktifkan di Cloudflare
+   **sebelum** memasang konfigurasi Nginx (Nginx menolak koneksi tanpa sertifikat
+   klien dengan 400):
+
+   ```sh
+   sudo curl -fsS https://developers.cloudflare.com/ssl/static/authenticated_origin_pull_ca.pem \
+     -o /etc/ssl/cloudflare/authenticated_origin_pull_ca.pem
+   ```
+
+5. Caching → Cache Rules: hostname sama dengan `link.example.com` →
+   **Bypass cache**. Jangan pakai Cache Everything/Edge TTL untuk host ini;
+   klik dan perubahan link harus selalu sampai ke backend.
+
+Allowlist IP saja **bukan** autentikasi, karena rentang IP Cloudflare dipakai
+semua pelanggan Cloudflare. Origin baru dipercaya setelah lolos allowlist
+**dan** sertifikat klien Authenticated Origin Pulls. Hanya dengan itu header
+`CF-Connecting-IP`/`CF-IPCountry` aman dipakai backend.
+
+### 3. Nginx
+
+```sh
+cd /srv/jadi-link
+sudo deploy/scripts/update-cloudflare-ips.sh        # tulis /etc/nginx/snippets/cloudflare-ips.conf
+sudo cp deploy/nginx/jadi-link.conf /etc/nginx/sites-available/jadi-link.conf
+sudo sed -i 's/link\.example\.com/HOST-ASLI/g' /etc/nginx/sites-available/jadi-link.conf
+sudo ln -s /etc/nginx/sites-available/jadi-link.conf /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Yang dikerjakan konfigurasi ini:
+
+- Hanya IP Cloudflare + sertifikat klien Cloudflare yang dilayani, lainnya `deny`.
+- Host tak dikenal ditolak: HTTP `444`, HTTPS menolak handshake.
+- `X-Forwarded-For` ditimpa, bukan ditambah, sehingga tidak bisa disisipi klien.
+- Body maksimal 64 KiB dan timeout disamakan dengan Fastify.
+- Format log tidak mencatat IP pengunjung maupun query string.
+
+Perbarui allowlist berkala, misalnya lewat `sudo crontab -e`:
+
+```cron
+0 4 * * 1 /srv/jadi-link/deploy/scripts/update-cloudflare-ips.sh
+```
+
+Script menolak daftar yang mencurigakan (kurang dari 10 rentang), menjalankan
+`nginx -t`, dan mengembalikan file lama bila validasi gagal.
+
+Firewall: buka SSH, lalu 80/443 hanya untuk rentang Cloudflare:
+
+```sh
+sudo ufw allow OpenSSH
+for ip in $(curl -fsS https://www.cloudflare.com/ips-v4) $(curl -fsS https://www.cloudflare.com/ips-v6); do
+  sudo ufw allow proto tcp from "$ip" to any port 80,443
+done
+sudo ufw enable
+```
+
+Periksa: `curl -i https://link.example.com/api/health` → 200; akses langsung
+`https://IP-VPS` harus gagal; port 3001 tidak boleh terbuka dari luar.
+
+### 4. Vercel (frontend)
+
+1. Import repo, **Root Directory** `frontend`, framework Next.js,
+   Node.js **24.x**.
+2. Environment Variable (Production):
+   `NEXT_PUBLIC_API_URL=https://link.example.com/api`. Nilai ditanam saat
+   build; redeploy setelah mengubahnya.
+3. Domain `app.example.com`. Bila DNS di Cloudflare, buat `CNAME` ke target
+   yang diberikan Vercel dengan status **DNS only** (awan abu-abu).
+4. Samakan `FRONTEND_ORIGIN` backend dengan origin production ini persis.
+   CORS hanya mengizinkan satu origin, sehingga **preview deployment**
+   (`*.vercel.app`) memang tidak bisa memanggil API production.
+
+### 5. Rilis berikutnya
+
+- Backend: `ssh` ke VPS lalu `/srv/jadi-link/deploy/scripts/deploy-backend.sh`.
+- Frontend: Vercel membangun ulang otomatis setiap push ke `main`.
+- Migrasi dijalankan sebelum reload, jadi tulis migrasi yang kompatibel dengan
+  versi kode sebelumnya. Rollback kode (deploy commit lama) tidak membatalkan
+  migrasi secara otomatis.
+
+### Menguji konfigurasi deployment
+
+Dari root repo (Windows/macOS/Linux):
+
+```sh
+node --test "deploy/test/*.test.mjs"
+```
+
+Di Linux yang memiliki `nginx`, `openssl`, `curl`, dan `python3`, tanpa root:
+
+```sh
+NGINX=/usr/sbin/nginx deploy/test/nginx-smoke.sh
+```
+
+Smoke test menjalankan nginx sungguhan di port 18080/18443 dengan sertifikat
+sementara dan upstream echo. Yang diperiksa:
+
+- IP non-Cloudflare → 403.
+- Tanpa sertifikat klien, atau sertifikat dari CA lain → 400.
+- `X-Forwarded-For` palsu ditimpa; header CF diteruskan.
+- Body lebih dari 64 KiB → 413.
+- Host tak dikenal ditolak; HTTP diarahkan ke HTTPS.
+- IP pengunjung tidak masuk access log.
 
 ## Kualitas dan build
 
@@ -686,6 +855,16 @@ edit tujuan/cache, status 410, delete, dan refresh logout; tidak ada uncaught
 browser error. Database uji dibuang sesudah tes. Tidak ada penulisan ke Neon,
 perubahan schema, migrasi baru, atau konfigurasi deployment pada fase ini.
 
+Verifikasi fase 8: **10 tes kontrak deployment** (`node --test`), backend
+**212 unit + 118 HTTP**, format/lint/build backend lulus. Validator env backend
+menolak template production mentah (secret placeholder) dan menerimanya setelah
+secret diisi. Script lolos `bash -n`; allowlist Cloudflare dibuat dengan
+`update-cloudflare-ips.sh` itu sendiri. `nginx-smoke.sh` disiapkan untuk nginx
+1.24 (Ubuntu 24.04) tetapi **belum dijalankan** di lingkungan pengembangan ini;
+jalankan di Linux sebelum go-live. Deployment ke server sungguhan belum
+dilakukan karena domain dan VPS belum ditentukan. Tidak ada perubahan kode
+aplikasi, schema, atau migrasi.
+
 ## Struktur backend
 
 ```text
@@ -740,4 +919,4 @@ backend/
 - `/docs` dan `/docs/openapi.json` hanya tersedia di non-production.
   Domain asli belum ditentukan; ubah env saat sudah tersedia.
 
-Deployment lengkap sengaja belum dibuat sebelum fase 8.
+Panduan dan konfigurasi deployment ada di bagian Deployment (fase 8) dan folder `deploy/`.
